@@ -22,6 +22,10 @@ object cat {
   }
 
   object implicits {
+    implicit class FunctorOps[F[_], A](private val self: F[A])(implicit val F: Functor[F]) {
+      def map[B](f: A => B): F[B] = F.map(self)(f)
+    }
+
     implicit class MonadOps[M[_], A](private val self: M[A])(implicit val M: Monad[M]) {
       def >>=[B](f: A => M[B]): M[B] = M.flatMap(self)(f)
       def >>[B](m: M[B]): M[B] = M.andThen(self)(m)
