@@ -74,20 +74,12 @@ object Parser {
 
   def peek: Parser[Option[Char]] = get.map(curr)
 
-  def advance(i: Int): Parser[()] = replicateA(i, advance1) *> A.pure(())
+  def advance(i: Int): Parser[()] =
+    replicateA(i, advance1) *> A.pure(())
 
   def advance1: Parser[()] = get >>= { state =>
     if (state.pos < state.input.length - 1) {
-      val newPos = state.pos + 1
-      Parser(
-        put(
-          if (state.input.charAt(newPos) == '\n') {
-            state.copy(pos = newPos, charNum = 0, lineNum = state.lineNum + 1)
-          } else {
-            state.copy(pos = newPos, charNum = state.charNum + 1)
-          }
-        )
-      )
+      Parser(put(step(state)))
     } else {
       MF.fail("end of input")
     }
@@ -99,4 +91,13 @@ object Parser {
     } else {
       Some(state.input.charAt(state.pos))
     }
+
+  private def step(state: ParseState): ParseState = {
+    val newPos = state.pos + 1
+    if (state.input.charAt(newPos) == '\n') {
+      state.copy(pos = newPos, charNum = 0, lineNum = state.lineNum + 1)
+    } else {
+      state.copy(pos = newPos, charNum = state.charNum + 1)
+    }
+  }
 }
