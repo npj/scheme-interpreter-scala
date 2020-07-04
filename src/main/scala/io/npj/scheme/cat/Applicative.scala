@@ -9,6 +9,9 @@ object Applicative {
   def apply[F[_]: Functor](implicit f: Applicative[F]): Applicative[F] = f
 
   object syntax {
+    def pure[F[_]: Functor: Applicative, A](a: A): F[A] =
+      Applicative[F].pure(a)
+
     implicit class ApplicativeFunctionOps[F[_]: Functor: Applicative, A, B](self: F[A => B]) {
       def <*>(fa: F[A]): F[B] =
         Applicative[F].ap(self)(fa)

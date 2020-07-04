@@ -1,6 +1,6 @@
 package io.npj.scheme.cat.trans
 
-import io.npj.scheme.cat.MonadFail
+import io.npj.scheme.cat.{Alternative, MonadFail}
 
 case class StateT[M[_], S, A](private val runStateT: S => M[(A, S)])
 
@@ -9,6 +9,7 @@ object StateT {
   import io.npj.scheme.cat.{Functor, Applicative, Monad}
   import Functor.syntax._
   import Monad.syntax._
+  import Alternative.syntax._
 
   def runStateT[M[_]: Functor: Applicative: Monad, S, A](st: StateT[M, S, A], init: S): M[(A, S)] =
     st.runStateT(init)
@@ -56,6 +57,15 @@ object StateT {
   implicit def StateFail[M[_]: Functor: Applicative: Monad: MonadFail, S] = new MonadFail[({ type lam[A] = StateT[M, S, A] })#lam] {
     private val M = MonadFail[M]
     def fail[A](message: String): StateT[M, S, A] = StateT(const(M.fail(message)))
+  }
+
+  implicit def StateAlternative[M[_]: Functor: Applicative: Monad: Alternative, S] = new Alternative[({ type lam[A] = StateT[M, S, A] })#lam] {
+    override def empty[A]: StateT[M, S, A] = StateT(const(Alternative[M].empty))
+
+    override def orElse[A](fa1: StateT[M, S, A])(fa2: StateT[M, S, A]): StateT[M, S, A] =
+      StateT { s =>
+        runStateT(fa1, s) <|> runStateT(fa2, s)
+      }
   }
 
   def get[M[_]: Functor: Applicative: Monad, S]: StateT[M, S, S] =

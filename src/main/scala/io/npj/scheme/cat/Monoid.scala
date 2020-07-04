@@ -13,4 +13,9 @@ object Monoid {
       def <>(a: A): A = Monoid[A].append(self, a)
     }
   }
+
+  implicit object StringMonoid extends Monoid[String] {
+    override def empty: String = ""
+    override def append(a1: String, a2: String): String = a1 ++ a1
+  }
 }

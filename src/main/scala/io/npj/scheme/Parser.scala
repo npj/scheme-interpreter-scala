@@ -1,7 +1,7 @@
 package io.npj.scheme
 
 import io.npj.scheme.Parser.ParserState
-import io.npj.scheme.cat.{Identity, MonadFail}
+import io.npj.scheme.cat.{Alternative, Identity, MonadFail}
 import io.npj.scheme.cat.trans.{EitherT, StateT}
 
 object types {
@@ -14,6 +14,7 @@ object Parser {
   import io.npj.scheme.cat.{Functor, Applicative, Monad, MonadFail}
   import Functor.syntax._
   import Applicative.syntax._
+  import Alternative.syntax._
   import Monad.syntax._
   import StateT._
   import EitherT._
@@ -41,6 +42,14 @@ object Parser {
   implicit object ParserFail extends MonadFail[Parser] {
     def fail[A](message: String): Parser[A] =
       Parser(MonadFail[ParserState].fail(message))
+  }
+
+  implicit object ParserAlternative extends Alternative[Parser] {
+    override def empty[A]: Parser[A] =
+      Parser(Alternative[ParserState].empty)
+
+    override def orElse[A](fa1: Parser[A])(fa2: Parser[A]): Parser[A] =
+      Parser(fa1.parserState <|> fa2.parserState)
   }
 
   def runParser[A](parser: Parser[A], input: String): Either[String, A] = {
