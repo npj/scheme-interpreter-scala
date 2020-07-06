@@ -71,37 +71,51 @@ object Parser {
   private val MF = MonadFail[Parser]
 
   private def get: Parser[ParseState] = Parser(StateT.get)
-
+  private def put(state: ParseState): Parser[()] = Parser(StateT.put(state))
   private def modify(f: ParseState => ParseState): Parser[()] = Parser(StateT.modify(f))
 
   private def fail[A](message: String): Parser[A] = get >>= { state =>
     MF.fail(s"$message: line = ${state.lineNum}, char = ${state.charNum}")
   }
 
-  def char(c: Char): Parser[Char] = peek >>= {
-    case Some(`c`) => A.pure(c)
-    case _ => fail(s"expected '$c'")
+  def char(c: Char): Parser[Char] =
+    peek >>= {
+      case Some(`c`) => A.pure(c) <* advance(1)
+      case _ => fail(s"expected '$c'")
+    }
+
+  def peek: Parser[Option[Char]] = get >>= { state =>
+    if (state.pos == state.input.length) {
+      A.pure(None)
+    } else if (state.pos > state.input.length) {
+      fail("end of input")
+    } else {
+      A.pure(Some(state.input.charAt(state.pos)))
+    }
   }
 
-  def peek: Parser[Option[Char]] = get.map(curr)
+  def takeWhile(f: Char => Boolean): Parser[String] = {
+    def collect(s: String): Parser[String] =
+      peek >>= {
+        case Some(c) if f(c) => advance(1) >> collect(s :+ c)
+        case _ => A.pure(s)
+      }
+
+    collect("")
+  }
+
 
   def advance(i: Int): Parser[()] =
     replicateA(i, advance1) *> A.pure(())
 
   def advance1: Parser[()] = get >>= { state =>
-    if (state.pos < state.input.length - 1) {
-      Parser(put(step(state)))
+    if (state.pos < state.input.length) {
+      put(step(state))
     } else {
-      fail(s"end of input")
+      fail("end of input")
     }
   }
 
-  private def curr(state: ParseState): Option[Char] =
-    if (state.pos >= state.input.length) {
-      None
-    } else {
-      Some(state.input.charAt(state.pos))
-    }
 
   private def step(state: ParseState): ParseState = {
     val newPos = state.pos + 1

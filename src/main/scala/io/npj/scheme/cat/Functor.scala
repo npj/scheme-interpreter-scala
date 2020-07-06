@@ -11,6 +11,9 @@ object Functor {
     implicit class FunctorOps[F[_]: Functor, A](self: F[A]) {
       def map[B](f: A => B): F[B] =
         Functor[F].map(self)(f)
+
+      def foreach(f: A => Unit): Unit =
+        map(f)
     }
   }
 }

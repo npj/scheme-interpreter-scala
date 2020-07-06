@@ -23,6 +23,9 @@ object Applicative {
 
       def *>[B](fb: F[B]): F[B] =
         self.map { (a: A) => (b: B) => const(b)(a) } <*> fb
+
+      def <*[B](fb: F[B]): F[A] =
+        self.map { (a: A) => (b: B) => const(a)(b) } <*> fb
     }
 
     def replicateA[F[_]: Functor: Applicative, A](times: Int, action: F[A]): F[Seq[A]] =
