@@ -20,12 +20,21 @@ class ParserTest extends org.scalatest.FunSuite {
   }
 
   test("char") {
-    assert(runParser(char('('), input = "(") == Right('('))
-    assert(runParser(char('('), input = ")") == Left("expected '(': line = 1, char = 1"))
+    //assert(runParser(char('('), input = "(") == Right('('))
+    assert(runParser(char('('), input = ")") == Left("char: expected '(' at line = 1, char = 1"))
   }
 
   test("takeWhile") {
     assert(runParser(char('(') *> takeWhile(_ != ')') <* char(')'), input = "(some) (stuff)") == Right("some"))
+    assert(runParser(char('(') *> takeWhile(_ != ')') <* char(')'), input = "(some") == Left("char: expected ')' at line = 1, char = 6"))
+    assert(runParser(char('(') *> takeWhile(_ != ')') <* char(')'), input = "()") == Right(""))
+  }
+
+  test("takeWhile1") {
+    assert(runParser(char('(') *> takeWhile1(_ != ')') <* char(')'), input = "(some) (stuff)") == Right("some"))
+    assert(runParser(char('(') *> takeWhile1(_ != ')') <* char(')'), input = "(some") == Left("char: expected ')' at line = 1, char = 6"))
+    assert(runParser(char('(') *> takeWhile1(_ != ')') <* char(')'), input = "()") == Left("takeWhile1: predicate failed at line = 1, char = 2"))
+    assert(runParser(char('(') *> takeWhile1(_ != ')') <* char(')'), input = "(a)") == Right("a"))
   }
 
   test("alternative") {
@@ -35,8 +44,15 @@ class ParserTest extends org.scalatest.FunSuite {
   }
 
   test("line and char tracking") {
-    assert(runParser(advance(4) >> peek, input = "bcd") == Left("end of input: line = 1, char = 4"))
-    assert(runParser(advance(5) >> peek, input = "\nbcd") == Left("end of input: line = 2, char = 4"))
-    assert(runParser(advance(5) >> peek, input = "bc\nd") == Left("end of input: line = 2, char = 2"))
+    assert(runParser(advance(4) >> peek, input = "bcd") == Left("advance: advance1: end of input at line = 1, char = 4"))
+    assert(runParser(advance(5) >> peek, input = "\nbcd") == Left("advance: advance1: end of input at line = 2, char = 4"))
+    assert(runParser(advance(5) >> peek, input = "bc\nd") == Left("advance: advance1: end of input at line = 2, char = 2"))
+  }
+
+  test("decimal") {
+    assert(runParser(decimal, "1234") == Right(1234))
+    assert(runParser(decimal, "1234abcd") == Right(1234))
+    assert(runParser(decimal, "00001234") == Right(1234))
+    assert(runParser(decimal, "a1234") == Left("decimal: takeWhile1: predicate failed at line = 1, char = 1"))
   }
 }

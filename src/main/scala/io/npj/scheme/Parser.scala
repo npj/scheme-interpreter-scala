@@ -18,7 +18,7 @@ object ParseState {
 
 object Parser {
   import Alternative.syntax._
-  import io.npj.scheme.cat.{Applicative, Functor, Monad, MonadFail}
+  import io.npj.scheme.cat.{Applicative, Functor, Monad, MonadError}
   import Applicative.syntax._
   import EitherT._
   import Functor.syntax._
@@ -45,9 +45,12 @@ object Parser {
       Parser(ma.parserState >>= { a => f(a).parserState })
   }
 
-  implicit object ParserFail extends MonadFail[Parser] {
-    def fail[A](message: String): Parser[A] =
-      Parser(MonadFail[ParserStateM].fail(message))
+  implicit object ParserError extends MonadError[Parser] {
+    def throwError[A](message: String): Parser[A] =
+      Parser(MonadError[ParserStateM].throwError(message))
+
+    def catchError[A](ma: Parser[A])(f: String => Parser[A]): Parser[A] =
+      Parser(MonadError[ParserStateM].catchError(ma.parserState)(f(_).parserState))
   }
 
   implicit object ParserAlternative extends Alternative[Parser] {
@@ -68,30 +71,46 @@ object Parser {
 
   private val A = Applicative[Parser]
   private val M = Monad[Parser]
-  private val MF = MonadFail[Parser]
+  private val AL = Alternative[Parser]
+  private val ME = MonadError[Parser]
 
   private def get: Parser[ParseState] = Parser(StateT.get)
   private def put(state: ParseState): Parser[()] = Parser(StateT.put(state))
   private def modify(f: ParseState => ParseState): Parser[()] = Parser(StateT.modify(f))
 
-  private def fail[A](message: String): Parser[A] = get >>= { state =>
-    MF.fail(s"$message: line = ${state.lineNum}, char = ${state.charNum}")
+  private def throwError[A](message: String): Parser[A] =
+    get >>= { state =>
+      ME.throwError(s"$message at line = ${state.lineNum}, char = ${state.charNum}")
+    }
+
+  object syntax {
+    implicit class ParserOps[A](self: Parser[A]) {
+      def named(name: String): Parser[A] =
+        ME.catchError(self) { msg => ME.throwError(s"$name: $msg") }
+    }
   }
 
-  def char(c: Char): Parser[Char] =
-    peek >>= {
-      case Some(`c`) => A.pure(c) <* advance(1)
-      case _ => fail(s"expected '$c'")
-    }
+  import syntax._
 
-  def peek: Parser[Option[Char]] = get >>= { state =>
-    if (state.pos == state.input.length) {
-      A.pure(None)
-    } else if (state.pos > state.input.length) {
-      fail("end of input")
-    } else {
-      A.pure(Some(state.input.charAt(state.pos)))
+  def char(c: Char): Parser[Char] = {
+    val p: Parser[Char] = peek >>= {
+      case Some(`c`) => A.pure(c) <* advance(1)
+      case _ => throwError(s"expected '$c'")
     }
+    p.named("char")
+  }
+
+  def peek: Parser[Option[Char]] = {
+    val p: Parser[Option[Char]] = get >>= { state =>
+      if (state.pos == state.input.length) {
+        A.pure(None)
+      } else if (state.pos > state.input.length) {
+        throwError("end of input")
+      } else {
+        A.pure(Some(state.input.charAt(state.pos)))
+      }
+    }
+    p.named("peek")
   }
 
   def takeWhile(f: Char => Boolean): Parser[String] = {
@@ -101,21 +120,38 @@ object Parser {
         case _ => A.pure(s)
       }
 
-    collect("")
+    collect("").named("takeWhile")
   }
 
-
-  def advance(i: Int): Parser[()] =
-    replicateA(i, advance1) *> A.pure(())
-
-  def advance1: Parser[()] = get >>= { state =>
-    if (state.pos < state.input.length) {
-      put(step(state))
-    } else {
-      fail("end of input")
+  def takeWhile1(f: Char => Boolean): Parser[String] = {
+    val p: Parser[String] = peek >>= {
+      case Some(c) if f(c) => advance(1) >> takeWhile(f).map(c +: _)
+      case Some(c) if !f(c) => throwError("predicate failed")
+      case None => throwError("end of input")
     }
+    p.named("takeWhile1")
   }
 
+  def decimal: Parser[Int] = {
+    val p: Parser[Int] = takeWhile1(_.isDigit).map { s =>
+      s.foldLeft(0) { (sum, c) => (sum * 10) + (c.toInt - 48) }
+    }
+    p.named("decimal")
+  }
+
+  def advance(i: Int): Parser[Unit] =
+    replicateA(i, advance1).named("advance") *> A.pure(())
+
+  def advance1: Parser[Unit] = {
+    val p: Parser[Unit] = get >>= { state =>
+      if (state.pos < state.input.length) {
+        put(step(state))
+      } else {
+        throwError("end of input")
+      }
+    }
+    p.named("advance1")
+  }
 
   private def step(state: ParseState): ParseState = {
     val newPos = state.pos + 1

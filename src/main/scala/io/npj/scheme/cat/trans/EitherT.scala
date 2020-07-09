@@ -1,11 +1,9 @@
 package io.npj.scheme.cat.trans
 
-import io.npj.scheme.cat.{Alternative, MonadFail, Monoid}
-
 case class EitherT[M[_], E, A](private val runEitherT: M[Either[E, A]])
 
 object EitherT {
-  import io.npj.scheme.cat.{Functor, Applicative, Monad}
+  import io.npj.scheme.cat.{Functor, Applicative, Alternative, Monad, MonadError, Monoid}
   import Functor.syntax._
   import Monad.syntax._
 
@@ -48,11 +46,19 @@ object EitherT {
       )
   }
 
-  implicit def EitherFail[M[_]: Functor: Applicative: Monad] = new MonadFail[({ type lam[A] = EitherT[M, String, A] })#lam] {
+  implicit def EitherError[M[_]: Functor: Applicative: Monad] = new MonadError[({ type lam[A] = EitherT[M, String, A] })#lam] {
     private val A = Applicative[M]
 
-     def fail[A](message: String): EitherT[M, String, A] =
-       EitherT(A.pure(Left(message)))
+    def throwError[A](message: String): EitherT[M, String, A] =
+      EitherT(A.pure(Left(message)))
+
+    def catchError[A](ma: EitherT[M, String, A])(f: String => EitherT[M, String, A]): EitherT[M, String, A] =
+      EitherT(
+        runEitherT(ma) >>= {
+          case Left(err) => runEitherT(f(err))
+          case Right(ok) => A.pure(Right(ok))
+        }
+      )
   }
 
   implicit def EitherAlternative[M[_]: Functor: Applicative: Monad, E: Monoid] = new Alternative[({ type lam[A] = EitherT[M, E, A] })#lam] {

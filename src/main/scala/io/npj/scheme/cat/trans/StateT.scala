@@ -1,6 +1,6 @@
 package io.npj.scheme.cat.trans
 
-import io.npj.scheme.cat.{Alternative, MonadFail}
+import io.npj.scheme.cat.{Alternative, MonadError}
 
 case class StateT[M[_], S, A](private val runStateT: S => M[(A, S)])
 
@@ -54,9 +54,14 @@ object StateT {
       }
   }
 
-  implicit def StateFail[M[_]: Functor: Applicative: Monad: MonadFail, S] = new MonadFail[({ type lam[A] = StateT[M, S, A] })#lam] {
-    private val M = MonadFail[M]
-    def fail[A](message: String): StateT[M, S, A] = StateT(const(M.fail(message)))
+  implicit def StateError[M[_]: Functor: Applicative: Monad: MonadError, S] = new MonadError[({ type lam[A] = StateT[M, S, A] })#lam] {
+    private val M = MonadError[M]
+    def throwError[A](message: String): StateT[M, S, A] =
+      StateT(const(M.throwError(message)))
+
+    def catchError[A](ma: StateT[M, S, A])(f: String => StateT[M, S, A]): StateT[M, S, A] = StateT { s =>
+      M.catchError(runStateT(ma, s)) { msg => runStateT(f(msg), s) }
+    }
   }
 
   implicit def StateAlternative[M[_]: Functor: Applicative: Monad: Alternative, S] = new Alternative[({ type lam[A] = StateT[M, S, A] })#lam] {
