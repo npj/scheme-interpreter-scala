@@ -33,27 +33,37 @@ object Parser {
   }
 
   implicit object ParserApplicative extends Applicative[Parser] {
+    val F: Functor[Parser] = ParserFunctor
+
     def pure[A](a: A): Parser[A] =
       Parser(Applicative[ParserStateM].pure(a))
 
     def ap[A, B](fab: Parser[A => B])(fa: Parser[A]): Parser[B] =
       Parser(fab.parserState <*> fa.parserState)
+
   }
 
   implicit object ParserMonad extends Monad[Parser] {
+    val Ap: Applicative[Parser] = ParserApplicative
+
     def flatMap[A, B](ma: Parser[A])(f: A => Parser[B]): Parser[B] =
       Parser(ma.parserState >>= { a => f(a).parserState })
   }
 
   implicit object ParserError extends MonadError[Parser] {
+    val M: Monad[Parser] = ParserMonad
+
     def throwError[A](message: String): Parser[A] =
       Parser(MonadError[ParserStateM].throwError(message))
 
     def catchError[A](ma: Parser[A])(f: String => Parser[A]): Parser[A] =
       Parser(MonadError[ParserStateM].catchError(ma.parserState)(f(_).parserState))
+
   }
 
   implicit object ParserAlternative extends Alternative[Parser] {
+    val Ap: Applicative[Parser] = ParserApplicative
+
     override def empty[A]: Parser[A] =
       Parser(Alternative[ParserStateM].empty)
 
@@ -92,12 +102,22 @@ object Parser {
 
   import syntax._
 
-  def char(c: Char): Parser[Char] = {
-    val p: Parser[Char] = peek >>= {
-      case Some(`c`) => A.pure(c) <* advance(1)
-      case _ => throwError(s"expected '$c'")
+  def char(c: Char): Parser[Char] =
+    ME.catchError(satisfy(_ == c)) { _ =>
+      throwError(s"char: expected '$c'")
     }
-    p.named("char")
+
+  def space: Parser[Char] =
+    ME.catchError(satisfy(_.isSpaceChar)) { _ =>
+      throwError(s"space: expected space character")
+    }
+
+  def satisfy(f: Char => Boolean): Parser[Char] = {
+    val p: Parser[Char] = peek >>= {
+      case Some(c) if f(c) => advance1 *> A.pure(c)
+      case _ => throwError(s"predicate failed")
+    }
+    p.named("satisfy")
   }
 
   def peek: Parser[Option[Char]] = {
@@ -130,13 +150,6 @@ object Parser {
       case None => throwError("end of input")
     }
     p.named("takeWhile1")
-  }
-
-  def decimal: Parser[Int] = {
-    val p: Parser[Int] = takeWhile1(_.isDigit).map { s =>
-      s.foldLeft(0) { (sum, c) => (sum * 10) + (c.toInt - 48) }
-    }
-    p.named("decimal")
   }
 
   def advance(i: Int): Parser[Unit] =

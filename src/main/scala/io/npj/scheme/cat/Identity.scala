@@ -9,6 +9,8 @@ object Identity {
   }
 
   implicit object IdentityApplicative extends Applicative[Identity] {
+    val F: Functor[Identity] = IdentityFunctor
+
     def pure[A](a: A): Identity[A] =
       Identity(a)
 
@@ -17,6 +19,8 @@ object Identity {
   }
 
   implicit object IdentityMonad extends Monad[Identity] {
+    override val Ap: Applicative[Identity] = IdentityApplicative
+
     def flatMap[A, B](ma: Identity[A])(f: A => Identity[B]): Identity[B] =
       f(ma.a)
   }

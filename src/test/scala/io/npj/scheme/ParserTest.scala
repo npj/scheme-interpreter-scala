@@ -1,6 +1,7 @@
 package io.npj.scheme
 
 class ParserTest extends org.scalatest.FunSuite {
+
   import Parser._
   import io.npj.scheme.cat.Alternative.syntax._
   import io.npj.scheme.cat.Applicative.syntax._
@@ -20,7 +21,7 @@ class ParserTest extends org.scalatest.FunSuite {
   }
 
   test("char") {
-    //assert(runParser(char('('), input = "(") == Right('('))
+    assert(runParser(char('('), input = "(") == Right('('))
     assert(runParser(char('('), input = ")") == Left("char: expected '(' at line = 1, char = 1"))
   }
 
@@ -49,10 +50,8 @@ class ParserTest extends org.scalatest.FunSuite {
     assert(runParser(advance(5) >> peek, input = "bc\nd") == Left("advance: advance1: end of input at line = 2, char = 2"))
   }
 
-  test("decimal") {
-    assert(runParser(decimal, "1234") == Right(1234))
-    assert(runParser(decimal, "1234abcd") == Right(1234))
-    assert(runParser(decimal, "00001234") == Right(1234))
-    assert(runParser(decimal, "a1234") == Left("decimal: takeWhile1: predicate failed at line = 1, char = 1"))
+  test("many") {
+    val word = takeWhile(!_.isSpaceChar) <* space
+    val parser = char('(') *> many(word) <* char(')')
   }
 }

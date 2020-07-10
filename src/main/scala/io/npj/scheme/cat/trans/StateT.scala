@@ -11,40 +11,46 @@ object StateT {
   import Monad.syntax._
   import Alternative.syntax._
 
-  def runStateT[M[_]: Functor: Applicative: Monad, S, A](st: StateT[M, S, A], init: S): M[(A, S)] =
+  def runStateT[M[_]: Monad, S, A](st: StateT[M, S, A], init: S): M[(A, S)] =
     st.runStateT(init)
 
-  def evalStateT[M[_]: Functor: Applicative: Monad, S, A](st: StateT[M, S, A], init: S): M[A] =
-    runStateT(st, init).map(_._1)
+  def evalStateT[M[_]: Monad, S, A](st: StateT[M, S, A], init: S): M[A] =
+    Monad[M].Ap.F.map(runStateT(st, init))(_._1)
 
-  def execStateT[M[_]: Functor: Applicative: Monad, S, A](st: StateT[M, S, A], init: S): M[S] =
-    runStateT(st, init).map(_._2)
+  def execStateT[M[_]: Monad, S, A](st: StateT[M, S, A], init: S): M[S] =
+    Monad[M].Ap.F.map(runStateT(st, init))(_._2)
 
-  implicit def StateFunctor[M[_]: Functor: Applicative: Monad, S] = new Functor[({ type lam[A] = StateT[M, S, A] })#lam] {
+  implicit def StateFunctor[M[_]: Monad, S] = new Functor[({ type lam[A] = StateT[M, S, A] })#lam] {
+    private val M = Monad[M]
+
     def map[A, B](fa: StateT[M, S, A])(f: A => B): StateT[M, S, B] =
       StateT { s =>
-        runStateT(fa, s).map { case (a, ns) => (f(a), ns) }
+        M.Ap.F.map(runStateT(fa, s)) { case (a, ns) => (f(a), ns) }
       }
   }
 
-  implicit def StateApplicative[M[_]: Functor: Applicative: Monad, S] = new Applicative[({ type lam[A] = StateT[M, S, A] })#lam] {
-    private val A = Applicative[M]
+  implicit def StateApplicative[M[_]: Monad, S] = new Applicative[({ type lam[A] = StateT[M, S, A] })#lam] {
+    private val M = Monad[M]
+
+    val F: Functor[({ type lam[A] = StateT[M, S, A] })#lam] = StateFunctor
 
     def pure[A](a: A): StateT[M, S, A] =
-      StateT { s => A.pure((a, s)) }
+      StateT { s => M.Ap.pure((a, s)) }
 
     def ap[A, B](fab: StateT[M, S, A => B])(fa: StateT[M, S, A]): StateT[M, S, B] =
       StateT { s =>
         runStateT(fab, s) >>= { case (ab, ns) =>
           runStateT(fa, ns) >>= { case (a, nns) =>
-            A.pure(ab(a), nns)
+            M.Ap.pure(ab(a), nns)
           }
         }
       }
   }
 
-  implicit def StateMonad[M[_]: Functor: Applicative: Monad, S] = new Monad[({ type lam[A] = StateT[M, S, A] })#lam] {
+  implicit def StateMonad[M[_]: Monad, S] = new Monad[({ type lam[A] = StateT[M, S, A] })#lam] {
     private val M = Monad[M]
+
+    val Ap: Applicative[({ type lam[A] = StateT[M, S, A] })#lam] = StateApplicative
 
     def flatMap[A, B](sma: StateT[M, S, A])(f: A => StateT[M, S, B]): StateT[M, S, B] =
       StateT { s =>
@@ -52,22 +58,28 @@ object StateT {
             runStateT(f(a), ns)
         }
       }
+
   }
 
-  implicit def StateError[M[_]: Functor: Applicative: Monad: MonadError, S] = new MonadError[({ type lam[A] = StateT[M, S, A] })#lam] {
-    private val M = MonadError[M]
+  implicit def StateError[M[_]: Monad: MonadError, S] = new MonadError[({ type lam[A] = StateT[M, S, A] })#lam] {
+    private val ME = MonadError[M]
+
+    val M: Monad[({ type lam[A] = StateT[M, S, A] })#lam] = StateMonad
+
     def throwError[A](message: String): StateT[M, S, A] =
-      StateT(const(M.throwError(message)))
+      StateT(const(ME.throwError(message)))
 
     def catchError[A](ma: StateT[M, S, A])(f: String => StateT[M, S, A]): StateT[M, S, A] = StateT { s =>
-      M.catchError(runStateT(ma, s)) { msg => runStateT(f(msg), s) }
+      ME.catchError(runStateT(ma, s)) { msg => runStateT(f(msg), s) }
     }
   }
 
-  implicit def StateAlternative[M[_]: Functor: Applicative: Monad: Alternative, S] = new Alternative[({ type lam[A] = StateT[M, S, A] })#lam] {
-    override def empty[A]: StateT[M, S, A] = StateT(const(Alternative[M].empty))
+  implicit def StateAlternative[M[_]: Monad: Alternative, S] = new Alternative[({ type lam[A] = StateT[M, S, A] })#lam] {
+    val Ap: Applicative[({ type lam[A] = StateT[M, S, A] })#lam] = StateApplicative
 
-    override def orElse[A](fa1: StateT[M, S, A])(fa2: StateT[M, S, A]): StateT[M, S, A] =
+    def empty[A]: StateT[M, S, A] = StateT(const(Alternative[M].empty))
+
+    def orElse[A](fa1: StateT[M, S, A])(fa2: StateT[M, S, A]): StateT[M, S, A] =
       StateT { s =>
         runStateT(fa1, s) <|> runStateT(fa2, s)
       }
