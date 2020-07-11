@@ -51,7 +51,6 @@ class ParserTest extends org.scalatest.FunSuite {
   }
 
   test("many") {
-    val word = takeWhile(!_.isSpaceChar) <* space
-    val parser = char('(') *> many(word) <* char(')')
+    val parser = many(space)
   }
 }

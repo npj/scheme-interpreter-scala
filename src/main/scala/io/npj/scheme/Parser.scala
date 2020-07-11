@@ -64,10 +64,10 @@ object Parser {
   implicit object ParserAlternative extends Alternative[Parser] {
     val Ap: Applicative[Parser] = ParserApplicative
 
-    override def empty[A]: Parser[A] =
+    def empty[A]: Parser[A] =
       Parser(Alternative[ParserStateM].empty)
 
-    override def orElse[A](fa1: Parser[A])(fa2: Parser[A]): Parser[A] =
+    def orElse[A](fa1: Parser[A])(fa2: Parser[A]): Parser[A] =
       Parser(fa1.parserState <|> fa2.parserState)
   }
 
