@@ -19,7 +19,7 @@ object Identity {
   }
 
   implicit object IdentityMonad extends Monad[Identity] {
-    override val Ap: Applicative[Identity] = IdentityApplicative
+    val Ap: Applicative[Identity] = IdentityApplicative
 
     def flatMap[A, B](ma: Identity[A])(f: A => Identity[B]): Identity[B] =
       f(ma.a)

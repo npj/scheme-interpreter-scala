@@ -7,14 +7,11 @@ trait Applicative[F[_]] {
 }
 
 object Applicative {
-  import Cons.cons
+  import Cons._
 
   def apply[F[_]](implicit f: Applicative[F]): Applicative[F] = f
 
   object syntax {
-    def pure[F[_]: Functor: Applicative, A](a: A): F[A] =
-      Applicative[F].pure(a)
-
     implicit class ApplicativeFunctionOps[F[_]: Applicative, A, B](self: F[A => B]) {
       def <*>(fa: F[A]): F[B] =
         Applicative[F].ap(self)(fa)
@@ -31,13 +28,19 @@ object Applicative {
       def <*[B](fb: F[B]): F[A] =
         Ap.F.map(self) { (a: A) => (b: B) => const(a)(b) } <*> fb
     }
+  }
 
-    def replicateA[F[_]: Applicative, A](times: Int, action: F[A]): F[Seq[A]] = {
-      if (times == 0) {
-        Applicative[F].pure(Seq())
-      } else {
-        Applicative[F].F.map(action)(cons) <*> replicateA(times - 1, action)
-      }
+  import Functor.syntax._
+  import syntax._
+
+  def pure[F[_]: Functor: Applicative, A](a: A): F[A] =
+    Applicative[F].pure(a)
+
+  def replicateA[F[_]: Applicative, A](times: Int, action: F[A])(implicit F: Functor[F]): F[Seq[A]] = {
+    if (times == 0) {
+      pure(Seq())
+    } else {
+      action.map(+:) <*> replicateA(times - 1, action)
     }
   }
 }

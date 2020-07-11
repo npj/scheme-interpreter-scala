@@ -10,13 +10,12 @@ object EitherT {
   def runEitherT[M[_]: Monad, E, A](either: EitherT[M, E, A]): M[Either[E, A]] =
     either.runEitherT
 
-  implicit def EitherFunctor[M[_]: Monad, E] = new Functor[({ type lam[A] = EitherT[M, E, A] })#lam] {
-    private val M = Monad[M]
+  implicit def EitherFunctor[M[_]: Functor: Monad, E] = new Functor[({ type lam[A] = EitherT[M, E, A] })#lam] {
     override def map[A, B](fa: EitherT[M, E, A])(f: A => B): EitherT[M, E, B] =
-      EitherT(M.Ap.F.map(runEitherT(fa))(_.map(f)))
+      EitherT(runEitherT(fa).map(_.map(f)))
   }
 
-  implicit def EitherApplicative[M[_]: Monad, E] = new Applicative[({ type lam[A] = EitherT[M, E, A] })#lam] {
+  implicit def EitherApplicative[M[_]: Functor: Monad, E] = new Applicative[({ type lam[A] = EitherT[M, E, A] })#lam] {
     private val M = Monad[M]
 
     val F: Functor[({ type lam[A] = EitherT[M, E, A] })#lam] = EitherFunctor
@@ -37,7 +36,7 @@ object EitherT {
     }
   }
 
-  implicit def EitherMonad[M[_]: Monad, E] = new Monad[({ type lam[A] = EitherT[M, E, A] })#lam] {
+  implicit def EitherMonad[M[_]: Functor: Monad, E] = new Monad[({ type lam[A] = EitherT[M, E, A] })#lam] {
     private val M = Monad[M]
 
     val Ap: Applicative[({ type lam[A] = EitherT[M, E, A] })#lam] = EitherApplicative
@@ -51,7 +50,7 @@ object EitherT {
       )
   }
 
-  implicit def EitherError[M[_]: Monad] = new MonadError[({ type lam[A] = EitherT[M, String, A] })#lam] {
+  implicit def EitherError[M[_]: Functor: Monad] = new MonadError[({ type lam[A] = EitherT[M, String, A] })#lam] {
     private val _M = Monad[M]
 
     val M: Monad[({ type lam[A] = EitherT[M, String, A] })#lam] = EitherMonad
@@ -68,7 +67,7 @@ object EitherT {
       )
   }
 
-  implicit def EitherAlternative[M[_]: Monad, E: Monoid] = new Alternative[({ type lam[A] = EitherT[M, E, A] })#lam] {
+  implicit def EitherAlternative[M[_]: Functor: Monad, E: Monoid] = new Alternative[({ type lam[A] = EitherT[M, E, A] })#lam] {
     private val M = Monad[M]
 
     val Ap: Applicative[({ type lam[A] = EitherT[M, E, A] })#lam] = EitherApplicative

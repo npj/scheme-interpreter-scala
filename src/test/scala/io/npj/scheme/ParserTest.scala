@@ -4,6 +4,7 @@ class ParserTest extends org.scalatest.FunSuite {
 
   import Parser._
   import io.npj.scheme.cat.Alternative.syntax._
+  import io.npj.scheme.cat.Applicative._
   import io.npj.scheme.cat.Applicative.syntax._
   import io.npj.scheme.cat.Monad.syntax._
 

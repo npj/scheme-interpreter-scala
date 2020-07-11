@@ -20,16 +20,16 @@ object StateT {
   def execStateT[M[_]: Monad, S, A](st: StateT[M, S, A], init: S): M[S] =
     Monad[M].Ap.F.map(runStateT(st, init))(_._2)
 
-  implicit def StateFunctor[M[_]: Monad, S] = new Functor[({ type lam[A] = StateT[M, S, A] })#lam] {
+  implicit def StateFunctor[M[_]: Functor: Monad, S] = new Functor[({ type lam[A] = StateT[M, S, A] })#lam] {
     private val M = Monad[M]
 
     def map[A, B](fa: StateT[M, S, A])(f: A => B): StateT[M, S, B] =
       StateT { s =>
-        M.Ap.F.map(runStateT(fa, s)) { case (a, ns) => (f(a), ns) }
+        runStateT(fa, s).map { case (a, ns) => (f(a), ns) }
       }
   }
 
-  implicit def StateApplicative[M[_]: Monad, S] = new Applicative[({ type lam[A] = StateT[M, S, A] })#lam] {
+  implicit def StateApplicative[M[_]: Functor: Monad, S] = new Applicative[({ type lam[A] = StateT[M, S, A] })#lam] {
     private val M = Monad[M]
 
     val F: Functor[({ type lam[A] = StateT[M, S, A] })#lam] = StateFunctor
@@ -47,21 +47,20 @@ object StateT {
       }
   }
 
-  implicit def StateMonad[M[_]: Monad, S] = new Monad[({ type lam[A] = StateT[M, S, A] })#lam] {
+  implicit def StateMonad[M[_]: Functor: Monad, S] = new Monad[({ type lam[A] = StateT[M, S, A] })#lam] {
     private val M = Monad[M]
 
     val Ap: Applicative[({ type lam[A] = StateT[M, S, A] })#lam] = StateApplicative
 
     def flatMap[A, B](sma: StateT[M, S, A])(f: A => StateT[M, S, B]): StateT[M, S, B] =
       StateT { s =>
-        M.flatMap(runStateT(sma, s)) { case (a, ns) =>
+        runStateT(sma, s) >>= { case (a, ns) =>
             runStateT(f(a), ns)
         }
       }
-
   }
 
-  implicit def StateError[M[_]: Monad: MonadError, S] = new MonadError[({ type lam[A] = StateT[M, S, A] })#lam] {
+  implicit def StateError[M[_]: Functor: Monad: MonadError, S] = new MonadError[({ type lam[A] = StateT[M, S, A] })#lam] {
     private val ME = MonadError[M]
 
     val M: Monad[({ type lam[A] = StateT[M, S, A] })#lam] = StateMonad
@@ -74,8 +73,9 @@ object StateT {
     }
   }
 
-  implicit def StateAlternative[M[_]: Monad: Alternative, S] = new Alternative[({ type lam[A] = StateT[M, S, A] })#lam] {
+  implicit def StateAlternative[M[_]: Functor: Monad: Alternative, S] = new Alternative[({ type lam[A] = StateT[M, S, A] })#lam] {
     private val Alt = Alternative[M]
+
     val Ap: Applicative[({ type lam[A] = StateT[M, S, A] })#lam] = StateApplicative
 
     def empty[A]: StateT[M, S, A] = StateT(const(Alternative[M].empty))

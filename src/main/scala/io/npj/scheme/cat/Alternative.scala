@@ -1,7 +1,7 @@
 package io.npj.scheme.cat
 
 trait Alternative[F[_]] {
-  import Cons.cons
+  import Cons._
 
   val Ap: Applicative[F]
 
@@ -13,7 +13,7 @@ trait Alternative[F[_]] {
     orElse(some(fa))(Ap.pure(Seq()))
 
   def some[A](fa: F[A]): F[Seq[A]] =
-    Ap.ap(Ap.F.map(fa)(cons))(many(fa))
+    Ap.ap(Ap.F.map(fa)(+:))(many(fa))
 }
 
 object Alternative {
@@ -23,11 +23,9 @@ object Alternative {
     def many[F[_]: Alternative, A](fa: F[A]): F[Seq[A]] =
       Alternative[F].many(fa)
 
-    implicit class AlternativeOps[F[_]: Alternative, A](self: F[A]) {
-      private val Alt = Alternative[F]
-
-      def <|>(fa: F[A]): F[A] =
-        Alt.orElse(self)(fa)
+    implicit class AlternativeOps[F[_]: Alternative, A](self: => F[A]) {
+      def <|>(fa: => F[A]): F[A] =
+        Alternative[F].orElse(self)(fa)
     }
   }
 }

@@ -17,8 +17,6 @@ object Monad {
 
       def >>[B](mb: M[B]): M[B] =
         Monad[M].flatMap(self)(const(mb))
-
-      def flatMap[B](f: A => M[B]): M[B] = this >>= f
     }
   }
 }

@@ -17,16 +17,17 @@ object ParseState {
 }
 
 object Parser {
-  import Alternative.syntax._
   import io.npj.scheme.cat.{Applicative, Functor, Monad, MonadError}
-  import Applicative.syntax._
   import Functor.syntax._
+  import Applicative._
+  import Applicative.syntax._
+  import Alternative.syntax._
   import Monad.syntax._
-  import StateT._
-  import EitherT._
-  import Identity._
 
   type ParserStateM[A] = StateT[({ type lam[T] = EitherT[Identity, String, T] })#lam, ParseState, A]
+
+  private val M = Monad[ParserStateM]
+  private val Alt = Alternative[ParserStateM]
 
   implicit object ParserFunctor extends Functor[Parser] {
     def map[A, B](fa: Parser[A])(f: A => B): Parser[B] =
@@ -37,7 +38,7 @@ object Parser {
     val F: Functor[Parser] = ParserFunctor
 
     def pure[A](a: A): Parser[A] =
-      Parser(Applicative[ParserStateM].pure(a))
+      Parser(M.Ap.pure(a))
 
     def ap[A, B](fab: Parser[A => B])(fa: Parser[A]): Parser[B] =
       Parser(fab.parserState <*> fa.parserState)
@@ -63,61 +64,56 @@ object Parser {
   }
 
   implicit object ParserAlternative extends Alternative[Parser] {
-    import io.npj.scheme.cat.Cons.cons
-    private val Alt = Alternative[ParserStateM]
-
     val Ap: Applicative[Parser] = ParserApplicative
 
     def empty[A]: Parser[A] =
-      Parser(Alternative[ParserStateM].empty)
+      Parser(Alt.empty)
 
     def orElse[A](fa1: => Parser[A])(fa2: => Parser[A]): Parser[A] =
-      Parser(Alt.orElse(fa1.parserState)(fa2.parserState))
+      Parser(fa1.parserState <|> fa2.parserState)
   }
 
-  def runParser[A](parser: Parser[A], input: String): Either[String, A] =
-    runParserWithState(parser, ParseState.init(input)).map(_._1)
-
-  private def runParserWithState[A](parser: Parser[A], state: ParseState): Either[String, (A, ParseState)] = {
-    runIdentity(runEitherT(runStateT(parser.parserState, state)))
+  def runParser[A](parser: Parser[A], input: String): Either[String, A] = {
+    import Identity.runIdentity
+    import EitherT.runEitherT
+    import StateT.evalStateT
+    runIdentity(runEitherT(evalStateT(parser.parserState, ParseState.init(input))))
   }
-
-  private val A = Applicative[Parser]
-  private val M = Monad[Parser]
-  private val AL = Alternative[Parser]
-  private val ME = MonadError[Parser]
 
   private def get: Parser[ParseState] = Parser(StateT.get)
   private def put(state: ParseState): Parser[()] = Parser(StateT.put(state))
   private def modify(f: ParseState => ParseState): Parser[()] = Parser(StateT.modify(f))
 
-  private def throwError[A](message: String): Parser[A] =
+  def throwError[A](message: String): Parser[A] =
     get >>= { state =>
-      ME.throwError(s"$message at line = ${state.lineNum}, char = ${state.charNum}")
+      ParserError.throwError(s"$message at line = ${state.lineNum}, char = ${state.charNum}")
     }
+
+  def catchError[A](ma: Parser[A])(f: String => Parser[A]): Parser[A] =
+    ParserError.catchError(ma)(f)
 
   object syntax {
     implicit class ParserOps[A](self: Parser[A]) {
       def named(name: String): Parser[A] =
-        ME.catchError(self) { msg => ME.throwError(s"$name: $msg") }
+        ParserError.catchError(self) { msg => ParserError.throwError(s"$name: $msg") }
     }
   }
 
   import syntax._
 
   def char(c: Char): Parser[Char] =
-    ME.catchError(satisfy(_ == c)) { _ =>
+    catchError(satisfy(_ == c)) { _ =>
       throwError(s"char: expected '$c'")
     }
 
   def space: Parser[Char] =
-    ME.catchError(satisfy(_.isSpaceChar)) { _ =>
+    catchError(satisfy(_.isSpaceChar)) { _ =>
       throwError(s"space: expected space character")
     }
 
   def satisfy(f: Char => Boolean): Parser[Char] = {
     val p: Parser[Char] = peek >>= {
-      case Some(c) if f(c) => advance1 *> A.pure(c)
+      case Some(c) if f(c) => advance1 *> pure(c)
       case _ => throwError(s"predicate failed")
     }
     p.named("satisfy")
@@ -126,11 +122,11 @@ object Parser {
   def peek: Parser[Option[Char]] = {
     val p: Parser[Option[Char]] = get >>= { state =>
       if (state.pos == state.input.length) {
-        A.pure(None)
+        pure(None)
       } else if (state.pos > state.input.length) {
         throwError("end of input")
       } else {
-        A.pure(Some(state.input.charAt(state.pos)))
+        pure(Some(state.input.charAt(state.pos)))
       }
     }
     p.named("peek")
@@ -140,7 +136,7 @@ object Parser {
     def collect(s: String): Parser[String] =
       peek >>= {
         case Some(c) if f(c) => advance(1) >> collect(s :+ c)
-        case _ => A.pure(s)
+        case _ => pure(s)
       }
 
     collect("").named("takeWhile")
@@ -156,7 +152,7 @@ object Parser {
   }
 
   def advance(i: Int): Parser[Unit] =
-    replicateA(i, advance1).named("advance") *> A.pure(())
+    replicateA(i, advance1).named("advance") *> pure(())
 
   def advance1: Parser[Unit] = {
     val p: Parser[Unit] = get >>= { state =>
