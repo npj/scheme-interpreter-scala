@@ -23,6 +23,9 @@ object Alternative {
     def many[F[_]: Alternative, A](fa: F[A]): F[Seq[A]] =
       Alternative[F].many(fa)
 
+    def some[F[_]: Alternative, A](fa: F[A]): F[Seq[A]] =
+      Alternative[F].some(fa)
+
     implicit class AlternativeOps[F[_]: Alternative, A](self: => F[A]) {
       def <|>(fa: => F[A]): F[A] =
         Alternative[F].orElse(self)(fa)

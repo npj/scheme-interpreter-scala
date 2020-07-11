@@ -12,6 +12,9 @@ object Applicative {
   def apply[F[_]](implicit f: Applicative[F]): Applicative[F] = f
 
   object syntax {
+    def pure[F[_]: Functor: Applicative, A](a: A): F[A] =
+      Applicative[F].pure(a)
+
     implicit class ApplicativeFunctionOps[F[_]: Applicative, A, B](self: F[A => B]) {
       def <*>(fa: F[A]): F[B] =
         Applicative[F].ap(self)(fa)
@@ -32,9 +35,6 @@ object Applicative {
 
   import Functor.syntax._
   import syntax._
-
-  def pure[F[_]: Functor: Applicative, A](a: A): F[A] =
-    Applicative[F].pure(a)
 
   def replicateA[F[_]: Functor: Applicative, A](times: Int, action: F[A]): F[Seq[A]] = {
     if (times == 0) {

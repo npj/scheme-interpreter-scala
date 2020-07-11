@@ -54,5 +54,14 @@ class ParserTest extends org.scalatest.FunSuite {
   test("many") {
     val parser = many(space)
     assert(runParser(parser, input = "    ") == Right(Seq(' ', ' ', ' ', ' ')))
+    assert(runParser(char('(') *> parser <* char(')'), input = "(    )") == Right(Seq(' ', ' ', ' ', ' ')))
+    assert(runParser(parser, input = "") == Right(Seq()))
+  }
+
+  test("some") {
+    val parser = some(space)
+    assert(runParser(parser, input = "    ") == Right(Seq(' ', ' ', ' ', ' ')))
+    assert(runParser(char('(') *> parser <* char(')'), input = "(    )") == Right(Seq(' ', ' ', ' ', ' ')))
+    assert(runParser(parser, input = "") == Left("space: expected space character at line = 1, char = 1"))
   }
 }
