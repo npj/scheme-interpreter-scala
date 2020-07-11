@@ -63,4 +63,11 @@ class ParserTest extends org.scalatest.FunSuite {
     assert(parse(char('(') *> parser <* char(')'), input = "(    )") == Right(Seq(' ', ' ', ' ', ' ')))
     assert(parse(parser, input = "") == Left("space: expected space character at line = 1, char = 1"))
   }
+
+  test("inClass") {
+    assert(parseSome(satisfy(inClass("abc")), "bcd") == Right('b', "cd"))
+    assert(parse(takeWhile(inClass("a-zA-Z123")), "The3") == Right("The3"))
+    assert(parseSome(takeWhile(inClass("a-zA-Z123")), "The4") == Right("The", "4"))
+    assert(parseSome(satisfy(inClass("abc")), "xyz") == Left("satisfy: predicate failed at line = 1, char = 1"))
+  }
 }

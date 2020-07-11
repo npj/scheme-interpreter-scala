@@ -184,6 +184,16 @@ object Parser {
     p.named("advance1")
   }
 
+  def inClass(charClass: String)(c: Char): Boolean = {
+    def parseClass(str: String): Seq[Char] =
+      (str: Seq[Char]) match {
+        case a +: '-' +: b +: rest => a.to(b) ++ parseClass(rest.toString)
+        case a +: rest => a +: parseClass(rest.toString)
+        case _ => ""
+      }
+    Set.from(parseClass(charClass)).contains(c)
+  }
+
   private def step(state: ParseState): ParseState = {
     val newPos = state.pos + 1
     if (state.input.charAt(state.pos) == '\n') {
