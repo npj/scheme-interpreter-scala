@@ -73,11 +73,22 @@ object Parser {
       Parser(fa1.parserState <|> fa2.parserState)
   }
 
-  def runParser[A](parser: Parser[A], input: String): Either[String, A] = {
+  def parse[A](parser: Parser[A], input: String): Either[String, A] = {
+    runParser(parser <* endOfInput, input).map(_._1)
+  }
+
+  def parseSome[A](parser: Parser[A], input: String): Either[String, (A, String)] = {
+    runParser(parser, input) match {
+      case Left(err) => Left(err)
+      case Right((result, state)) => Right(result, state.input.substring(state.pos))
+    }
+  }
+
+  private def runParser[A](parser: Parser[A], input: String): Either[String, (A, ParseState)] = {
     import Identity.runIdentity
     import EitherT.runEitherT
-    import StateT.evalStateT
-    runIdentity(runEitherT(evalStateT(parser.parserState, ParseState.init(input))))
+    import StateT.runStateT
+    runIdentity(runEitherT(runStateT(parser.parserState, ParseState.init(input))))
   }
 
   private def get: Parser[ParseState] = Parser(StateT.get)
@@ -111,10 +122,18 @@ object Parser {
       throwError(s"space: expected space character")
     }
 
+  def endOfInput: Parser[Unit] = {
+    val p: Parser[Unit] = peek >>= {
+      case None => pure(())
+      case _ => throwError("expected end of input")
+    }
+    p.named("endOfInput")
+  }
+
   def satisfy(f: Char => Boolean): Parser[Char] = {
     val p: Parser[Char] = peek >>= {
       case Some(c) if f(c) => advance1 *> pure(c)
-      case _ => throwError(s"predicate failed")
+      case _ => throwError("predicate failed")
     }
     p.named("satisfy")
   }
