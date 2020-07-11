@@ -75,13 +75,14 @@ object StateT {
   }
 
   implicit def StateAlternative[M[_]: Monad: Alternative, S] = new Alternative[({ type lam[A] = StateT[M, S, A] })#lam] {
+    private val Alt = Alternative[M]
     val Ap: Applicative[({ type lam[A] = StateT[M, S, A] })#lam] = StateApplicative
 
     def empty[A]: StateT[M, S, A] = StateT(const(Alternative[M].empty))
 
-    def orElse[A](fa1: StateT[M, S, A])(fa2: StateT[M, S, A]): StateT[M, S, A] =
+    def orElse[A](fa1: => StateT[M, S, A])(fa2: => StateT[M, S, A]): StateT[M, S, A] =
       StateT { s =>
-        runStateT(fa1, s) <|> runStateT(fa2, s)
+        Alt.orElse(runStateT(fa1, s))(runStateT(fa2, s))
       }
   }
 

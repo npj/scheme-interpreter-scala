@@ -64,27 +64,15 @@ object Parser {
 
   implicit object ParserAlternative extends Alternative[Parser] {
     import io.npj.scheme.cat.Cons.cons
+    private val Alt = Alternative[ParserStateM]
 
     val Ap: Applicative[Parser] = ParserApplicative
 
     def empty[A]: Parser[A] =
       Parser(Alternative[ParserStateM].empty)
 
-    def orElse[A](fa1: Parser[A])(fa2: Parser[A]): Parser[A] =
-      Parser(fa1.parserState <|> fa2.parserState)
-
-    override def many[A](fa: Parser[A]): Parser[Seq[A]] = {
-      val SM = Monad[ParserStateM]
-      Parser(StateT { s =>
-        runParserWithState(fa, s) match {
-          case Left(err) => EitherT(Identity(Right((Seq(), s))))
-          case Right((a, ns)) => runParserWithState(some(fa), ns) match {
-            case Left(err) => EitherT(Identity(Right((Seq(a), ns))))
-            case Right((as, nns)) => EitherT(Identity(Right((a +: as, nns))))
-          }
-        }
-      })
-    }
+    def orElse[A](fa1: => Parser[A])(fa2: => Parser[A]): Parser[A] =
+      Parser(Alt.orElse(fa1.parserState)(fa2.parserState))
   }
 
   def runParser[A](parser: Parser[A], input: String): Either[String, A] =

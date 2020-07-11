@@ -76,7 +76,7 @@ object EitherT {
     def empty[A]: EitherT[M, E, A] =
       EitherT(M.Ap.pure(Left(Monoid[E].empty)))
 
-    def orElse[A](fa1: EitherT[M, E, A])(fa2: EitherT[M, E, A]): EitherT[M, E, A] =
+    def orElse[A](fa1: => EitherT[M, E, A])(fa2: => EitherT[M, E, A]): EitherT[M, E, A] =
       EitherT(
         runEitherT(fa1) >>= {
           case Left(_) => runEitherT(fa2)

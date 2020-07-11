@@ -6,7 +6,8 @@ trait Alternative[F[_]] {
   val Ap: Applicative[F]
 
   def empty[A]: F[A]
-  def orElse[A](fa1: F[A])(fa2: F[A]): F[A]
+
+  def orElse[A](fa1: => F[A])(fa2: => F[A]): F[A]
 
   def many[A](fa: F[A]): F[Seq[A]] =
     orElse(some(fa))(Ap.pure(Seq()))
