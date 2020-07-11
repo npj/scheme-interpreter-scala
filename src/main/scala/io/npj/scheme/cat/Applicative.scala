@@ -7,6 +7,8 @@ trait Applicative[F[_]] {
 }
 
 object Applicative {
+  import Cons.cons
+
   def apply[F[_]](implicit f: Applicative[F]): Applicative[F] = f
 
   object syntax {
@@ -31,11 +33,10 @@ object Applicative {
     }
 
     def replicateA[F[_]: Applicative, A](times: Int, action: F[A]): F[Seq[A]] = {
-      def prepend(a: A)(as: Seq[A]): Seq[A] = a +: as
       if (times == 0) {
         Applicative[F].pure(Seq())
       } else {
-        Applicative[F].F.map(action)(prepend) <*> replicateA(times - 1, action)
+        Applicative[F].F.map(action)(cons) <*> replicateA(times - 1, action)
       }
     }
   }

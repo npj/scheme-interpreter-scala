@@ -20,10 +20,11 @@ object Parser {
   import Alternative.syntax._
   import io.npj.scheme.cat.{Applicative, Functor, Monad, MonadError}
   import Applicative.syntax._
-  import EitherT._
   import Functor.syntax._
   import Monad.syntax._
   import StateT._
+  import EitherT._
+  import Identity._
 
   type ParserStateM[A] = StateT[({ type lam[T] = EitherT[Identity, String, T] })#lam, ParseState, A]
 
@@ -62,6 +63,8 @@ object Parser {
   }
 
   implicit object ParserAlternative extends Alternative[Parser] {
+    import io.npj.scheme.cat.Cons.cons
+
     val Ap: Applicative[Parser] = ParserApplicative
 
     def empty[A]: Parser[A] =
@@ -69,14 +72,26 @@ object Parser {
 
     def orElse[A](fa1: Parser[A])(fa2: Parser[A]): Parser[A] =
       Parser(fa1.parserState <|> fa2.parserState)
+
+    override def many[A](fa: Parser[A]): Parser[Seq[A]] = {
+      val SM = Monad[ParserStateM]
+      Parser(StateT { s =>
+        runParserWithState(fa, s) match {
+          case Left(err) => EitherT(Identity(Right((Seq(), s))))
+          case Right((a, ns)) => runParserWithState(some(fa), ns) match {
+            case Left(err) => EitherT(Identity(Right((Seq(a), ns))))
+            case Right((as, nns)) => EitherT(Identity(Right((a +: as, nns))))
+          }
+        }
+      })
+    }
   }
 
-  def runParser[A](parser: Parser[A], input: String): Either[String, A] = {
-    Identity.runIdentity(
-      EitherT.runEitherT(
-        StateT.evalStateT(parser.parserState, ParseState.init(input))
-      )
-    )
+  def runParser[A](parser: Parser[A], input: String): Either[String, A] =
+    runParserWithState(parser, ParseState.init(input)).map(_._1)
+
+  private def runParserWithState[A](parser: Parser[A], state: ParseState): Either[String, (A, ParseState)] = {
+    runIdentity(runEitherT(runStateT(parser.parserState, state)))
   }
 
   private val A = Applicative[Parser]

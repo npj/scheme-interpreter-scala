@@ -52,5 +52,6 @@ class ParserTest extends org.scalatest.FunSuite {
 
   test("many") {
     val parser = many(space)
+    assert(runParser(parser, input = "    ") == Right(Seq(' ', ' ', ' ', ' ')))
   }
 }
