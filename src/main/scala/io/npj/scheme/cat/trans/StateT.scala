@@ -21,9 +21,7 @@ object StateT {
     Monad[M].Ap.F.map(runStateT(st, init))(_._2)
 
   implicit def StateFunctor[M[_]: Functor: Monad, S] = new Functor[({ type lam[A] = StateT[M, S, A] })#lam] {
-    private val M = Monad[M]
-
-    def map[A, B](fa: StateT[M, S, A])(f: A => B): StateT[M, S, B] =
+    def map[A, B](fa: => StateT[M, S, A])(f: A => B): StateT[M, S, B] =
       StateT { s =>
         runStateT(fa, s).map { case (a, ns) => (f(a), ns) }
       }
@@ -34,10 +32,10 @@ object StateT {
 
     val F: Functor[({ type lam[A] = StateT[M, S, A] })#lam] = StateFunctor
 
-    def pure[A](a: A): StateT[M, S, A] =
+    def pure[A](a: => A): StateT[M, S, A] =
       StateT { s => M.Ap.pure((a, s)) }
 
-    def ap[A, B](fab: StateT[M, S, A => B])(fa: StateT[M, S, A]): StateT[M, S, B] =
+    def ap[A, B](fab: => StateT[M, S, A => B])(fa: => StateT[M, S, A]): StateT[M, S, B] =
       StateT { s =>
         runStateT(fab, s) >>= { case (ab, ns) =>
           runStateT(fa, ns) >>= { case (a, nns) =>
@@ -52,7 +50,7 @@ object StateT {
 
     val Ap: Applicative[({ type lam[A] = StateT[M, S, A] })#lam] = StateApplicative
 
-    def flatMap[A, B](sma: StateT[M, S, A])(f: A => StateT[M, S, B]): StateT[M, S, B] =
+    def flatMap[A, B](sma: => StateT[M, S, A])(f: A => StateT[M, S, B]): StateT[M, S, B] =
       StateT { s =>
         runStateT(sma, s) >>= { case (a, ns) =>
             runStateT(f(a), ns)
@@ -68,7 +66,7 @@ object StateT {
     def throwError[A](message: String): StateT[M, S, A] =
       StateT(const(ME.throwError(message)))
 
-    def catchError[A](ma: StateT[M, S, A])(f: String => StateT[M, S, A]): StateT[M, S, A] = StateT { s =>
+    def catchError[A](ma: => StateT[M, S, A])(f: String => StateT[M, S, A]): StateT[M, S, A] = StateT { s =>
       ME.catchError(runStateT(ma, s)) { msg => runStateT(f(msg), s) }
     }
   }

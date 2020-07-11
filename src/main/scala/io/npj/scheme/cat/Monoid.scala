@@ -2,7 +2,7 @@ package io.npj.scheme.cat
 
 trait Monoid[A] {
   def empty: A
-  def append(a1: A, a2: A): A
+  def append(a1: => A, a2: => A): A
 }
 
 object Monoid {
@@ -15,7 +15,7 @@ object Monoid {
   }
 
   implicit object StringMonoid extends Monoid[String] {
-    override def empty: String = ""
-    override def append(a1: String, a2: String): String = a1 ++ a1
+    def empty: String = ""
+    def append(a1: => String, a2: => String): String = a1 ++ a1
   }
 }

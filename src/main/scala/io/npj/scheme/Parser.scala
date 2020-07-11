@@ -30,17 +30,17 @@ object Parser {
   private val Alt = Alternative[ParserStateM]
 
   implicit object ParserFunctor extends Functor[Parser] {
-    def map[A, B](fa: Parser[A])(f: A => B): Parser[B] =
+    def map[A, B](fa: => Parser[A])(f: A => B): Parser[B] =
       Parser(fa.parserState.map(f))
   }
 
   implicit object ParserApplicative extends Applicative[Parser] {
     val F: Functor[Parser] = ParserFunctor
 
-    def pure[A](a: A): Parser[A] =
+    def pure[A](a: => A): Parser[A] =
       Parser(M.Ap.pure(a))
 
-    def ap[A, B](fab: Parser[A => B])(fa: Parser[A]): Parser[B] =
+    def ap[A, B](fab: => Parser[A => B])(fa: => Parser[A]): Parser[B] =
       Parser(fab.parserState <*> fa.parserState)
 
   }
@@ -48,7 +48,7 @@ object Parser {
   implicit object ParserMonad extends Monad[Parser] {
     val Ap: Applicative[Parser] = ParserApplicative
 
-    def flatMap[A, B](ma: Parser[A])(f: A => Parser[B]): Parser[B] =
+    def flatMap[A, B](ma: => Parser[A])(f: A => Parser[B]): Parser[B] =
       Parser(ma.parserState >>= { a => f(a).parserState })
   }
 
@@ -58,7 +58,7 @@ object Parser {
     def throwError[A](message: String): Parser[A] =
       Parser(MonadError[ParserStateM].throwError(message))
 
-    def catchError[A](ma: Parser[A])(f: String => Parser[A]): Parser[A] =
+    def catchError[A](ma: => Parser[A])(f: String => Parser[A]): Parser[A] =
       Parser(MonadError[ParserStateM].catchError(ma.parserState)(f(_).parserState))
 
   }

@@ -11,7 +11,7 @@ object EitherT {
     either.runEitherT
 
   implicit def EitherFunctor[M[_]: Functor: Monad, E] = new Functor[({ type lam[A] = EitherT[M, E, A] })#lam] {
-    override def map[A, B](fa: EitherT[M, E, A])(f: A => B): EitherT[M, E, B] =
+    def map[A, B](fa: => EitherT[M, E, A])(f: A => B): EitherT[M, E, B] =
       EitherT(runEitherT(fa).map(_.map(f)))
   }
 
@@ -20,10 +20,10 @@ object EitherT {
 
     val F: Functor[({ type lam[A] = EitherT[M, E, A] })#lam] = EitherFunctor
 
-    def pure[A](a: A): EitherT[M, E, A] =
+    def pure[A](a: => A): EitherT[M, E, A] =
       EitherT(M.Ap.pure(Right(a)))
 
-    def ap[A, B](fab: EitherT[M, E, A => B])(fa: EitherT[M, E, A]): EitherT[M, E, B] = {
+    def ap[A, B](fab: => EitherT[M, E, A => B])(fa: => EitherT[M, E, A]): EitherT[M, E, B] = {
       EitherT(
         runEitherT(fab) >>= {
           case Left(err) => M.Ap.pure(Left(err))
@@ -41,7 +41,7 @@ object EitherT {
 
     val Ap: Applicative[({ type lam[A] = EitherT[M, E, A] })#lam] = EitherApplicative
 
-    override def flatMap[A, B](ma: EitherT[M, E, A])(f: A => EitherT[M, E, B]): EitherT[M, E, B] =
+    override def flatMap[A, B](ma: => EitherT[M, E, A])(f: A => EitherT[M, E, B]): EitherT[M, E, B] =
       EitherT(
         runEitherT(ma) >>= {
           case Left(err) => M.Ap.pure(Left(err))
@@ -58,7 +58,7 @@ object EitherT {
     def throwError[A](message: String): EitherT[M, String, A] =
       EitherT(_M.Ap.pure(Left(message)))
 
-    def catchError[A](ma: EitherT[M, String, A])(f: String => EitherT[M, String, A]): EitherT[M, String, A] =
+    def catchError[A](ma: => EitherT[M, String, A])(f: String => EitherT[M, String, A]): EitherT[M, String, A] =
       EitherT(
         runEitherT(ma) >>= {
           case Left(err) => runEitherT(f(err))

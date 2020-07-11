@@ -2,8 +2,8 @@ package io.npj.scheme.cat
 
 trait Applicative[F[_]] {
   val F: Functor[F]
-  def pure[A](a: A): F[A]
-  def ap[A, B](fab: F[A => B])(fa: F[A]): F[B]
+  def pure[A](a: => A): F[A]
+  def ap[A, B](fab: => F[A => B])(fa: => F[A]): F[B]
 }
 
 object Applicative {
@@ -12,23 +12,23 @@ object Applicative {
   def apply[F[_]](implicit f: Applicative[F]): Applicative[F] = f
 
   object syntax {
-    def pure[F[_]: Functor: Applicative, A](a: A): F[A] =
+    def pure[F[_]: Functor: Applicative, A](a: => A): F[A] =
       Applicative[F].pure(a)
 
-    implicit class ApplicativeFunctionOps[F[_]: Applicative, A, B](self: F[A => B]) {
-      def <*>(fa: F[A]): F[B] =
+    implicit class ApplicativeFunctionOps[F[_]: Applicative, A, B](self: => F[A => B]) {
+      def <*>(fa: => F[A]): F[B] =
         Applicative[F].ap(self)(fa)
     }
 
-    implicit class ApplicativeOps[F[_]: Applicative, A](self: F[A]) {
+    implicit class ApplicativeOps[F[_]: Applicative, A](self: => F[A]) {
       private val Ap = Applicative[F]
 
       import Function.const
 
-      def *>[B](fb: F[B]): F[B] =
+      def *>[B](fb: => F[B]): F[B] =
         Ap.F.map(self) { (a: A) => (b: B) => const(b)(a) } <*> fb
 
-      def <*[B](fb: F[B]): F[A] =
+      def <*[B](fb: => F[B]): F[A] =
         Ap.F.map(self) { (a: A) => (b: B) => const(a)(b) } <*> fb
     }
   }
@@ -36,7 +36,7 @@ object Applicative {
   import Functor.syntax._
   import syntax._
 
-  def replicateA[F[_]: Functor: Applicative, A](times: Int, action: F[A]): F[Seq[A]] = {
+  def replicateA[F[_]: Functor: Applicative, A](times: Int, action: => F[A]): F[Seq[A]] = {
     if (times == 0) {
       pure(Seq())
     } else {
