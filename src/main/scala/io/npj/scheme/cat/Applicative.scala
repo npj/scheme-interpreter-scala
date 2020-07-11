@@ -36,7 +36,7 @@ object Applicative {
   def pure[F[_]: Functor: Applicative, A](a: A): F[A] =
     Applicative[F].pure(a)
 
-  def replicateA[F[_]: Applicative, A](times: Int, action: F[A])(implicit F: Functor[F]): F[Seq[A]] = {
+  def replicateA[F[_]: Functor: Applicative, A](times: Int, action: F[A]): F[Seq[A]] = {
     if (times == 0) {
       pure(Seq())
     } else {
