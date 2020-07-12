@@ -80,6 +80,9 @@ object Parser {
 
       def sepBy[U](s: Parser[U]): Parser[Seq[A]] =
         Parser.sepBy(self)(s)
+
+      def sepBy1[U](s: Parser[U]): Parser[Seq[A]] =
+        Parser.sepBy1(self)(s)
     }
   }
 
@@ -121,7 +124,7 @@ object Parser {
     }
 
   def space: Parser[Char] =
-    catchError(satisfy(_.isSpaceChar)) { _ =>
+    catchError(satisfy(_.isWhitespace)) { _ =>
       throwError(s"space: expected space character")
     }
 
@@ -200,8 +203,11 @@ object Parser {
   def named[A](p: Parser[A])(name: String): Parser[A] =
     ParserError.catchError(p) { msg => ParserError.throwError(s"$name: $msg") }
 
-  def sepBy[A, S](pa: Parser[A])(ps: Parser[S]): Parser[Seq[A]] =
-    pa.map(+:) <*> ((ps *> sepBy(pa)(pa)) <|> pure(Seq()))
+  def sepBy[A, S](p: Parser[A])(s: Parser[S]): Parser[Seq[A]] =
+    (p.map(+:) <*> (s *> sepBy1(p)(s) <|> pure(Seq()))) <|> pure(Seq())
+
+  def sepBy1[A, S](p: Parser[A])(s: Parser[S]): Parser[Seq[A]] =
+    p.map(+:) <*> ((s *> sepBy1(p)(s)) <|> pure(Seq()))
 
   private def step(state: ParseState): ParseState = {
     val newPos = state.pos + 1

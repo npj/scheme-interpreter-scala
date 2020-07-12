@@ -67,15 +67,27 @@ class ParserTest extends org.scalatest.FunSuite {
 
   test("inClass") {
     assert(parseSome(satisfy(inClass("abc")), "bcd") == Right('b', "cd"))
-    assert(parse(takeWhile(inClass("a-zA-Z123")), "The3") == Right("The3"))
+    assert(parse(takeWhile(inClass("a-zA-Z123-")), "The-3") == Right("The-3"))
+    assert(parse(takeWhile(inClass("-a-zA-Z123")), "The-3") == Right("The-3"))
     assert(parseSome(takeWhile(inClass("a-zA-Z123")), "The4") == Right("The", "4"))
     assert(parseSome(satisfy(inClass("abc")), "xyz") == Left("satisfy: predicate failed at line = 1, char = 1"))
   }
 
   test("sepBy") {
     val word = takeWhile1(inClass("a-zA-Z"))
-    val spaces = some(space)
-    val parser = word.sepBy(spaces) <* char('.')
+    val spaces = many(space)
+    val parser = spaces *> word.sepBy(spaces) <* char('.')
     assert(parse(parser, input = "The quick brown fox     jumped over the lazy dog.") == Right(Seq("The", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog")))
+    assert(parse(parser, input = "The quick brown fox \n\n    jumped\tover the lazy dog.") == Right(Seq("The", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog")))
+    assert(parse(parser, input = "     .") == Right(Seq()))
+  }
+
+  test("sepBy1") {
+    val word = takeWhile1(inClass("a-zA-Z"))
+    val spaces = many(space)
+    val parser = spaces *> word.sepBy1(spaces) <* char('.')
+    assert(parse(parser, input = "The quick brown fox     jumped over the lazy dog.") == Right(Seq("The", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog")))
+    assert(parse(parser, input = "The quick brown fox \n\n    jumped\tover the lazy dog.") == Right(Seq("The", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog")))
+    assert(parse(parser, input = "     .") == Left("takeWhile1: predicate failed at line = 1, char = 6"))
   }
 }
