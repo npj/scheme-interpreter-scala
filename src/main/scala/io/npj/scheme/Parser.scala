@@ -73,6 +73,18 @@ object Parser {
       Parser(fa1.parserState <|> fa2.parserState)
   }
 
+  object syntax {
+    implicit class ParserOps[A](self: Parser[A]) {
+      def named(name: String): Parser[A] =
+        Parser.named(self)(name)
+
+      def sepBy[U](s: Parser[U]): Parser[Seq[A]] =
+        Parser.sepBy(self)(s)
+    }
+  }
+
+  import syntax._
+
   def parse[A](parser: Parser[A], input: String): Either[String, A] = {
     runParser(parser <* endOfInput, input).map(_._1)
   }
@@ -102,15 +114,6 @@ object Parser {
 
   def catchError[A](ma: Parser[A])(f: String => Parser[A]): Parser[A] =
     ParserError.catchError(ma)(f)
-
-  object syntax {
-    implicit class ParserOps[A](self: Parser[A]) {
-      def named(name: String): Parser[A] =
-        ParserError.catchError(self) { msg => ParserError.throwError(s"$name: $msg") }
-    }
-  }
-
-  import syntax._
 
   def char(c: Char): Parser[Char] =
     catchError(satisfy(_ == c)) { _ =>
@@ -193,6 +196,11 @@ object Parser {
       }
     Set.from(parseClass(charClass)).contains(c)
   }
+
+  def named[A](p: Parser[A])(name: String): Parser[A] =
+    ParserError.catchError(p) { msg => ParserError.throwError(s"$name: $msg") }
+
+  def sepBy[A, U](p: Parser[A])(s: Parser[U]): Parser[Seq[A]] = ???
 
   private def step(state: ParseState): ParseState = {
     val newPos = state.pos + 1

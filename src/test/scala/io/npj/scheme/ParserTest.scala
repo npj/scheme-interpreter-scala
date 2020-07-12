@@ -2,10 +2,11 @@ package io.npj.scheme
 
 class ParserTest extends org.scalatest.FunSuite {
 
-  import Parser._
   import io.npj.scheme.cat.Alternative.syntax._
   import io.npj.scheme.cat.Applicative.syntax._
   import io.npj.scheme.cat.Monad.syntax._
+  import Parser._
+  import Parser.syntax._
 
   test("peek") {
     assert(parseSome(peek, "bcd") == Right(Some('b'), "bcd"))
@@ -69,5 +70,12 @@ class ParserTest extends org.scalatest.FunSuite {
     assert(parse(takeWhile(inClass("a-zA-Z123")), "The3") == Right("The3"))
     assert(parseSome(takeWhile(inClass("a-zA-Z123")), "The4") == Right("The", "4"))
     assert(parseSome(satisfy(inClass("abc")), "xyz") == Left("satisfy: predicate failed at line = 1, char = 1"))
+  }
+
+  test("sepBy") {
+    val word = takeWhile1(inClass("a-zA-Z"))
+    val spaces = some(space)
+    val parser = many(word.sepBy(spaces)) <* char('.')
+    assert(parse(parser, input = "The quick brown fox     jumped over the lazy dog.") == Right(Seq("The", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog")))
   }
 }
