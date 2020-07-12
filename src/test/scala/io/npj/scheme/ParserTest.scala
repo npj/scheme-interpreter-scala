@@ -75,7 +75,7 @@ class ParserTest extends org.scalatest.FunSuite {
   test("sepBy") {
     val word = takeWhile1(inClass("a-zA-Z"))
     val spaces = some(space)
-    val parser = many(word.sepBy(spaces)) <* char('.')
+    val parser = word.sepBy(spaces) <* char('.')
     assert(parse(parser, input = "The quick brown fox     jumped over the lazy dog.") == Right(Seq("The", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog")))
   }
 }

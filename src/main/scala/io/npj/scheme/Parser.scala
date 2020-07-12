@@ -23,6 +23,7 @@ object Parser {
   import Applicative.syntax._
   import Alternative.syntax._
   import Monad.syntax._
+  import io.npj.scheme.cat.Cons.+:
 
   type ParserStateM[A] = StateT[({ type lam[T] = EitherT[Identity, String, T] })#lam, ParseState, A]
 
@@ -42,7 +43,6 @@ object Parser {
 
     def ap[A, B](fab: => Parser[A => B])(fa: => Parser[A]): Parser[B] =
       Parser(fab.parserState <*> fa.parserState)
-
   }
 
   implicit object ParserMonad extends Monad[Parser] {
@@ -200,7 +200,8 @@ object Parser {
   def named[A](p: Parser[A])(name: String): Parser[A] =
     ParserError.catchError(p) { msg => ParserError.throwError(s"$name: $msg") }
 
-  def sepBy[A, U](p: Parser[A])(s: Parser[U]): Parser[Seq[A]] = ???
+  def sepBy[A, S](pa: Parser[A])(ps: Parser[S]): Parser[Seq[A]] =
+    pa.map(+:) <*> ((ps *> sepBy(pa)(pa)) <|> pure(Seq()))
 
   private def step(state: ParseState): ParseState = {
     val newPos = state.pos + 1
