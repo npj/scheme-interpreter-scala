@@ -36,7 +36,11 @@ object SchemeParser {
       (digits <> string(".")) <|>
       (string(".") <> digits)
 
-    ((significand <> exponent) <|> significand).map(BigDecimal(_)).named("float")
+    val parser: Parser[String] =
+      (significand <> exponent) <|>
+      significand
+
+    parser.map(BigDecimal(_)).named("float")
   }
 
   def signed[A: Numeric](p: Parser[A]): Parser[A] =
