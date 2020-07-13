@@ -44,7 +44,7 @@ object SchemeParser {
   }
 
   def signed[A: Numeric](p: Parser[A]): Parser[A] =
-    (char('-') *> p).map(implicitly[Numeric[A]].negate) <|>
+    (char('-') *> p).map(Numeric[A].negate) <|>
     (char('+') *> p) <|>
     p
 }
