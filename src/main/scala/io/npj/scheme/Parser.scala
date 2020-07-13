@@ -248,7 +248,7 @@ object Parser {
 
     def empty: Parser[A] = ParserApplicative.pure(M.empty)
 
-    def append(a1: => Parser[A])(a2: => Parser[A]): Parser[A] =
-      a1.map { a: A => b: A => M.append(a)(b) } <*> a2
+    def append(a1: Parser[A])(a2: Parser[A]): Parser[A] =
+      a1.map(M.append) <*> a2
   }
 }
