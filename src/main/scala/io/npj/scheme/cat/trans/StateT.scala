@@ -9,7 +9,6 @@ object StateT {
   import io.npj.scheme.cat.{Functor, Applicative, Monad}
   import Functor.syntax._
   import Monad.syntax._
-  import Alternative.syntax._
 
   def runStateT[M[_]: Monad, S, A](st: StateT[M, S, A], init: S): M[(A, S)] =
     st.runStateT(init)

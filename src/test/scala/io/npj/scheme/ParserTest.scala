@@ -2,9 +2,10 @@ package io.npj.scheme
 
 class ParserTest extends org.scalatest.FunSuite {
 
-  import io.npj.scheme.cat.Alternative.syntax._
+  import io.npj.scheme.cat.Functor.syntax._
   import io.npj.scheme.cat.Applicative.syntax._
   import io.npj.scheme.cat.Monad.syntax._
+  import io.npj.scheme.cat.Alternative.syntax._
   import Parser._
   import Parser.syntax._
 
@@ -74,20 +75,28 @@ class ParserTest extends org.scalatest.FunSuite {
   }
 
   test("sepBy") {
+    case class Sentence(words: Seq[String])
     val word = takeWhile1(inClass("a-zA-Z"))
     val spaces = many(space)
-    val parser = spaces *> word.sepBy(spaces) <* char('.')
-    assert(parse(parser, input = "The quick brown fox     jumped over the lazy dog.") == Right(Seq("The", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog")))
-    assert(parse(parser, input = "The quick brown fox \n\n    jumped\tover the lazy dog.") == Right(Seq("The", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog")))
-    assert(parse(parser, input = "     .") == Right(Seq()))
+    val parser = (spaces *> word.sepBy(spaces) <* char('.')).map(Sentence)
+    assert(parse(parser, input = "The quick brown fox     jumped over the lazy dog.") == Right(Sentence(Seq("The", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog"))))
+    assert(parse(parser, input = "The quick brown fox \n\n    jumped\tover the lazy dog.") == Right(Sentence(Seq("The", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog"))))
+    assert(parse(parser, input = "     .") == Right(Sentence(Seq())))
   }
 
   test("sepBy1") {
+    case class Sentence(words: Seq[String])
     val word = takeWhile1(inClass("a-zA-Z"))
     val spaces = many(space)
-    val parser = spaces *> word.sepBy1(spaces) <* char('.')
-    assert(parse(parser, input = "The quick brown fox     jumped over the lazy dog.") == Right(Seq("The", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog")))
-    assert(parse(parser, input = "The quick brown fox \n\n    jumped\tover the lazy dog.") == Right(Seq("The", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog")))
+    val parser = (spaces *> word.sepBy1(spaces) <* char('.')).map(Sentence)
+    assert(parse(parser, input = "The quick brown fox     jumped over the lazy dog.") == Right(Sentence(Seq("The", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog"))))
+    assert(parse(parser, input = "The quick brown fox \n\n    jumped\tover the lazy dog.") == Right(Sentence(Seq("The", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "dog"))))
     assert(parse(parser, input = "     .") == Left("takeWhile1: predicate failed at line = 1, char = 6"))
+  }
+
+  test("string") {
+    assert(parseSome(string("test"), input = "testString") == Right("test", "String"))
+    assert(parseSome(string("test"), input = "tesString") == Left("string: expected 't' at line = 1, char = 4"))
+    assert(parse(string("test").sepBy(space), input = "test test") == Right(Seq("test", "test")))
   }
 }

@@ -2,7 +2,7 @@ package io.npj.scheme
 
 import io.npj.scheme.Parser.ParserStateM
 import io.npj.scheme.cat.trans.{EitherT, StateT}
-import io.npj.scheme.cat.{Alternative, Identity}
+import io.npj.scheme.cat.{Alternative, Identity, Monoid}
 
 case class ParseState(charNum: Int, lineNum: Int, pos: Int, input: String)
 case class Parser[A](private val parserState: ParserStateM[A])
@@ -60,7 +60,6 @@ object Parser {
 
     def catchError[A](ma: => Parser[A])(f: String => Parser[A]): Parser[A] =
       Parser(MonadError[ParserStateM].catchError(ma.parserState)(f(_).parserState))
-
   }
 
   implicit object ParserAlternative extends Alternative[Parser] {
@@ -157,6 +156,14 @@ object Parser {
     p.named("peek")
   }
 
+  def ensure: Parser[Char] = {
+    val p: Parser[Char] = peek >>= {
+      case Some(c) => pure(c)
+      case _ => throwError("end of input")
+    }
+    p.named("ensure")
+  }
+
   def takeWhile(f: Char => Boolean): Parser[String] = {
     def collect(s: String): Parser[String] =
       peek >>= {
@@ -169,11 +176,29 @@ object Parser {
 
   def takeWhile1(f: Char => Boolean): Parser[String] = {
     val p: Parser[String] = peek >>= {
-      case Some(c) if f(c) => advance(1) >> takeWhile(f).map(c +: _)
+      case Some(c) if f(c) => advance1 *> takeWhile(f).map(c +: _)
       case Some(c) if !f(c) => throwError("predicate failed")
       case None => throwError("end of input")
     }
     p.named("takeWhile1")
+  }
+
+  def digits: Parser[String] =
+    takeWhile1(_.isDigit)
+
+  def string(toMatch: String): Parser[String] = {
+    def collect(s: String, i: Int): Parser[String] = {
+      if (s.charAt(i) == toMatch.charAt(i)) {
+        if (s.length == toMatch.length) {
+          pure(s) <* advance1
+        } else {
+          advance1 >> (ensure >>= { c => collect(s"$s$c", i + 1) })
+        }
+      } else {
+        throwError(s"expected '${toMatch.charAt(i)}'")
+      }
+    }
+    (ensure >>= { c => collect(s"$c", 0) }).named("string")
   }
 
   def advance(i: Int): Parser[Unit] =
@@ -216,5 +241,14 @@ object Parser {
     } else {
       state.copy(pos = newPos, charNum = state.charNum + 1)
     }
+  }
+
+  implicit def ParserMonoid[A: Monoid]: Monoid[Parser[A]] = new Monoid[Parser[A]] {
+    private val M = Monoid[A]
+
+    def empty: Parser[A] = ParserApplicative.pure(M.empty)
+
+    def append(a1: => Parser[A])(a2: => Parser[A]): Parser[A] =
+      a1.map { a: A => b: A => M.append(a)(b) } <*> a2
   }
 }
