@@ -20,12 +20,8 @@ object SchemeParser {
   import io.npj.scheme.cat.Alternative.syntax._
   import io.npj.scheme.cat.Monoid.syntax._
 
-  def integer: Parser[BigInt] = {
-    val p: Parser[BigInt] = digits.map { s =>
-      s.foldLeft(BigInt(0)) { (sum, c) => (sum * 10) + (c.toInt - 48) }
-    }
-    p.named("integer")
-  }
+  def integer: Parser[BigInt] =
+    digits.map(BigInt(_)).named("integer")
 
   def float: Parser[BigDecimal] = {
     val exponent: Parser[String] =
@@ -47,4 +43,10 @@ object SchemeParser {
     (char('-') *> p).map(Numeric[A].negate) <|>
     (char('+') *> p) <|>
     p
+
+  def boolean: Parser[Boolean] =
+    (string("#t") *> pure(true)) <|> (string("#f") *> pure(false))
+
+  def character: Parser[Char] =
+    char('#') *> char('\\') *> ensure <* advance1
 }

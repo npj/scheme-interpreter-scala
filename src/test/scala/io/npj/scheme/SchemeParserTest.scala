@@ -50,4 +50,16 @@ class SchemeParserTest extends FunSuite {
     assert(parse(signed(float), input = "123.E+123") == Right(123.0e123))
     assert(parse(signed(float), input = "-a123.123E+123") == Left("float: string: expected '.' at line = 1, char = 1"))
   }
+
+  test("boolean") {
+    assert(parse(boolean, input = "#t") == Right(true))
+    assert(parse(boolean, input = "#f") == Right(false))
+    assert(parse(boolean, input = "#c") == Left("string: expected 'f' at line = 1, char = 2"))
+  }
+
+  test("character") {
+    assert(parse(character, input = "#\\c") == Right('c'))
+    assert(parse(character, input = "#\\h") == Right('h'))
+    assert(parse(character, input = "#\\\\") == Right('\\'))
+  }
 }
