@@ -1,10 +1,12 @@
 package io.npj.scheme
 
-import io.npj.scheme.Parser.{parse, parseSome}
 import org.scalatest.FunSuite
 
 class SchemeParserTest extends FunSuite {
   import SchemeParser._
+  import Parser._
+  import Parser.syntax._
+
   test("integer") {
     assert(parse(integer, "1234") == Right(1234))
     assert(parse(integer, "12341234123412341234123412341234") == Right(BigInt("12341234123412341234123412341234")))
@@ -61,5 +63,17 @@ class SchemeParserTest extends FunSuite {
     assert(parse(character, input = "#\\c") == Right('c'))
     assert(parse(character, input = "#\\h") == Right('h'))
     assert(parse(character, input = "#\\\\") == Right('\\'))
+    assert(parse(character.sepBy(space), input = "#\\c #\\h #\\a #\\r") == Right(Seq('c', 'h', 'a', 'r')))
+  }
+
+  test("identifier") {
+    assert(parse(identifier, input = "a-valid-scheme-var?") == Right("a-valid-scheme-var?"))
+    assert(parse(identifier, input = "a-valid-scheme-var!") == Right("a-valid-scheme-var!"))
+    assert(parse(identifier, input = "a-valid->scheme-var") == Right("a-valid->scheme-var"))
+    assert(parse(identifier, input = "a-valid-1234567890-scheme-var") == Right("a-valid-1234567890-scheme-var"))
+    assert(parse(identifier, input = "a-valid-#scheme-var") == Right("a-valid-#scheme-var"))
+    assert(parse(identifier, input = "a-valid,scheme-var") == Right("a-valid,scheme-var"))
+    assert(parse(identifier, input = "#a-valid-scheme-var!") == Left("identifiers may not start with '#' or ',' at line = 1, char = 21"))
+    assert(parse(identifier, input = ",a-valid-scheme-var!") == Left("identifiers may not start with '#' or ',' at line = 1, char = 21"))
   }
 }

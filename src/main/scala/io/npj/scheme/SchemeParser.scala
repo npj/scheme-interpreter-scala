@@ -17,6 +17,7 @@ object SchemeParser {
   import Parser.syntax._
   import io.npj.scheme.cat.Functor.syntax._
   import io.npj.scheme.cat.Applicative.syntax._
+  import io.npj.scheme.cat.Monad.syntax._
   import io.npj.scheme.cat.Alternative.syntax._
   import io.npj.scheme.cat.Monoid.syntax._
 
@@ -49,4 +50,15 @@ object SchemeParser {
 
   def character: Parser[Char] =
     char('#') *> char('\\') *> ensure <* advance1
+
+  def identifier: Parser[String] =
+    (ensure <* advance1) >>= { first =>
+      takeWhile1(inClass("a-zA-Z0-9!@#$%^&*-_+=~,.<>?:")) >>= { rest =>
+        if (first == '#' || first == ',') {
+          throwError("identifiers may not start with '#' or ','")
+        } else {
+          pure(first +: rest)
+        }
+      }
+    }
 }
