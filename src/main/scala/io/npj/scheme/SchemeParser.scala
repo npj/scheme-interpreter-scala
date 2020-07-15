@@ -80,7 +80,7 @@ object SchemeParser {
     def stringChar: Parser[Char] =
       escapeChar <|> satisfy(notInClass("\"\n"))
 
-    (char('"') *> many(stringChar).map(_.mkString) <* char('"')).named("stringLit")
+    (char('"') *> many(stringChar) <* char('"')).named("stringLit").map(_.mkString)
   }
 
   def identifier: Parser[String] =
