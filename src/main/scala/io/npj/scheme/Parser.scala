@@ -122,6 +122,14 @@ object Parser {
       throwError(s"char: expected '$c'")
     }
 
+  def notChar(c: Char): Parser[Char] =
+    catchError(satisfy(_ != c)) { _ =>
+      throwError(s"notChar: unexpected '$c'")
+    }
+
+  def anyChar: Parser[Char] =
+    (ensure <* advance1).named("anyChar")
+
   def space: Parser[Char] =
     catchError(satisfy(_.isWhitespace)) { _ =>
       throwError(s"space: expected space character")
@@ -224,6 +232,8 @@ object Parser {
       }
     Set.from(parseClass(charClass)).contains(c)
   }
+
+  def notInClass(charClass: String)(c: Char): Boolean = !inClass(charClass)(c)
 
   def named[A](p: Parser[A])(name: String): Parser[A] =
     ParserError.catchError(p) { msg => ParserError.throwError(s"$name: $msg") }

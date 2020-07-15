@@ -27,6 +27,17 @@ class ParserTest extends org.scalatest.FunSuite {
     assert(parse(char('('), input = ")") == Left("char: expected '(' at line = 1, char = 1"))
   }
 
+  test("notChar") {
+    assert(parse(notChar('('), input = ")") == Right(')'))
+    assert(parse(notChar('('), input = "(") == Left("notChar: unexpected '(' at line = 1, char = 1"))
+  }
+
+  test("anyChar") {
+    assert(parse(anyChar, input = "a") == Right('a'))
+    assert(parse(anyChar, input = "b") == Right('b'))
+    assert(parse(anyChar, input = "") == Left("anyChar: ensure: end of input at line = 1, char = 1"))
+  }
+
   test("takeWhile") {
     assert(parseSome(char('(') *> takeWhile(_ != ')') <* char(')'), input = "(some) (stuff)") == Right("some", " (stuff)"))
     assert(parse(char('(') *> takeWhile(_ != ')') <* char(')'), input = "(some") == Left("char: expected ')' at line = 1, char = 6"))
@@ -72,6 +83,14 @@ class ParserTest extends org.scalatest.FunSuite {
     assert(parse(takeWhile(inClass("-a-zA-Z123")), "The-3") == Right("The-3"))
     assert(parseSome(takeWhile(inClass("a-zA-Z123")), "The4") == Right("The", "4"))
     assert(parseSome(satisfy(inClass("abc")), "xyz") == Left("satisfy: predicate failed at line = 1, char = 1"))
+  }
+
+  test("notInClass") {
+    assert(parseSome(satisfy(notInClass("abc")), "bcd") == Left("satisfy: predicate failed at line = 1, char = 1"))
+    assert(parseSome(satisfy(notInClass("a-zA-Z123-")), "The-3") == Left("satisfy: predicate failed at line = 1, char = 1"))
+    assert(parseSome(satisfy(notInClass("-a-zA-Z123")), "The-3") == Left("satisfy: predicate failed at line = 1, char = 1"))
+    assert(parseSome(satisfy(notInClass("a-zA-Z123")), "The4") == Left("satisfy: predicate failed at line = 1, char = 1"))
+    assert(parse(takeWhile(notInClass("abc")), "xyz") == Right("xyz"))
   }
 
   test("sepBy") {

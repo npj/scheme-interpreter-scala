@@ -76,4 +76,13 @@ class SchemeParserTest extends FunSuite {
     assert(parse(identifier, input = "#a-valid-scheme-var!") == Left("identifiers may not start with '#' or ',' at line = 1, char = 21"))
     assert(parse(identifier, input = ",a-valid-scheme-var!") == Left("identifiers may not start with '#' or ',' at line = 1, char = 21"))
   }
+
+  test("string") {
+    assert(parse(stringLit, input = "\"a quoted string\"") == Right("a quoted string"))
+    assert(parse(stringLit, input = "\"a quoted string\\nwith escape\"") == Right("a quoted string\nwith escape"))
+    assert(parse(stringLit, input = "\"a quoted \\\"string\\\" with escape\"") == Right("a quoted \"string\" with escape"))
+    assert(parse(stringLit, input = "\"a 'quoted' \\\"string\\\" with\\tescape\\r\\n\"") == Right("a 'quoted' \"string\" with\tescape\r\n"))
+    assert(parse(stringLit, input = "\"a non-terminated 'quoted' \\\"string\\\" with\\tescape\\r\\n") == Left("stringLit: char: expected '\"' at line = 1, char = 55"))
+    assert(parse(stringLit, input = "\"a non-terminated multiline\n'quoted' \\\"string\\\" with\\tescape\\r\\n") == Left("stringLit: char: expected '\"' at line = 1, char = 28"))
+  }
 }
