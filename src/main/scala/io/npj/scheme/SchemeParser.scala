@@ -13,6 +13,7 @@ case class BooleanToken(value: Boolean) extends Token
 case class CharToken(value: Char) extends Token
 
 object SchemeParser {
+  import Function.const
   import Parser._
   import Parser.syntax._
   import io.npj.scheme.cat.Functor.syntax._
@@ -32,13 +33,17 @@ object SchemeParser {
   private val escapeCodes = escapeChars.keys.mkString
 
   def token: Parser[Token] = {
-    val bool: Parser[Token] = boolean.map(BooleanToken)
-    val char: Parser[Token] = character.map(CharToken)
-    val int: Parser[Token] = integer.map(IntegerToken)
-    val fl: Parser[Token] = float.map(FloatToken)
-    val ident: Parser[Token] = identifier.map(IdentifierToken)
-    val str: Parser[Token] = stringLit.map(StringToken)
-    bool <|> char <|> int <|> fl <|> ident <|> str
+      numOrIdent <|>
+      boolean.map(BooleanToken) <|>
+      character.map(CharToken) <|>
+      stringLit.map(StringToken)
+  }
+
+  def numOrIdent: Parser[Token] = {
+    val nonNum: Parser[Unit] = ensure(notInClass("a-zA-Z.")) >>= const(pure())
+    val tryFloat: Parser[Token] = (float <* (nonNum <|> endOfInput)).map(FloatToken)
+    val tryInt: Parser[Token] = (integer <* (nonNum <|> endOfInput)).map(IntegerToken)
+    tryFloat <|> tryInt <|> identifier.map(IdentifierToken)
   }
 
   def integer: Parser[BigInt] =
@@ -55,6 +60,7 @@ object SchemeParser {
 
     val parser: Parser[String] =
       (significand <> exponent) <|>
+      (digits <> exponent) <|>
       significand
 
     parser.map(BigDecimal(_)).named("float")
@@ -86,8 +92,8 @@ object SchemeParser {
   def identifier: Parser[String] =
     anyChar >>= { first =>
       takeWhile1(inClass("a-zA-Z0-9!@#$%^&*-_+=~,.<>?:")) >>= { rest =>
-        if (first == '#' || first == ',') {
-          throwError("identifiers may not start with '#' or ','")
+        if (first == '#' || first == ',' || first == '"') {
+          throwError("identifiers may not start with '#', ',', or '\"'")
         } else {
           pure(first +: rest)
         }

@@ -35,7 +35,7 @@ class ParserTest extends org.scalatest.FunSuite {
   test("anyChar") {
     assert(parse(anyChar, input = "a") == Right('a'))
     assert(parse(anyChar, input = "b") == Right('b'))
-    assert(parse(anyChar, input = "") == Left("anyChar: ensure: end of input at line = 1, char = 1"))
+    assert(parse(anyChar, input = "") == Left("anyChar: take1: end of input at line = 1, char = 1"))
   }
 
   test("takeWhile") {

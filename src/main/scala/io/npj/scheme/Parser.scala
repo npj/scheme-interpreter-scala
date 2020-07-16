@@ -128,7 +128,7 @@ object Parser {
     }
 
   def anyChar: Parser[Char] =
-    (ensure <* advance1).named("anyChar")
+    (take1 <* advance1).named("anyChar")
 
   def space: Parser[Char] =
     catchError(satisfy(_.isWhitespace)) { _ =>
@@ -151,6 +151,17 @@ object Parser {
     p.named("satisfy")
   }
 
+  def ensure(f: Char => Boolean): Parser[Char] = {
+    val p: Parser[Char] = take1 >>= { c =>
+      if (f(c)) {
+        pure(c)
+      } else {
+        throwError("predicate failed")
+      }
+    }
+    p.named("ensure")
+  }
+
   def peek: Parser[Option[Char]] = {
     val p: Parser[Option[Char]] = get >>= { state =>
       if (state.pos == state.input.length) {
@@ -164,12 +175,12 @@ object Parser {
     p.named("peek")
   }
 
-  def ensure: Parser[Char] = {
+  def take1: Parser[Char] = {
     val p: Parser[Char] = peek >>= {
       case Some(c) => pure(c)
       case _ => throwError("end of input")
     }
-    p.named("ensure")
+    p.named("take1")
   }
 
   def takeWhile(f: Char => Boolean): Parser[String] = {
@@ -200,13 +211,13 @@ object Parser {
         if (s.length == toMatch.length) {
           pure(s) <* advance1
         } else {
-          advance1 >> (ensure >>= { c => collect(s"$s$c", i + 1) })
+          advance1 >> (take1 >>= { c => collect(s"$s$c", i + 1) })
         }
       } else {
         throwError(s"expected '${toMatch.charAt(i)}'")
       }
     }
-    (ensure >>= { c => collect(s"$c", 0) }).named("string")
+    (take1 >>= { c => collect(s"$c", 0) }).named("string")
   }
 
   def advance(i: Int): Parser[Unit] =
