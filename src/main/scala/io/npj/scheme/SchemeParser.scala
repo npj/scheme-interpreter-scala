@@ -52,7 +52,7 @@ object SchemeParser {
   ).named("token")
 
   def numOrIdent: Parser[Expression] = {
-    val nonNum: Parser[Unit] = ensure(notInClass("a-zA-Z.")) >>= const(pure())
+    val nonNum: Parser[Unit] = ensure(notInClass("a-zA-Z.")) >>= const(pure(()))
     val tryFloat: Parser[Expression] = (float <* (nonNum <|> endOfInput)).map(FloatToken)
     val tryInt: Parser[Expression] = (integer <* (nonNum <|> endOfInput)).map(IntegerToken)
     val tries: Parser[Expression] = tryFloat <|> tryInt <|> identifier.map(Identifier)
