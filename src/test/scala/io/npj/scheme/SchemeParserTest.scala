@@ -2,6 +2,8 @@ package io.npj.scheme
 
 import org.scalatest.FunSuite
 
+import scala.io.Source
+
 class SchemeParserTest extends FunSuite {
   import SchemeParser._
   import Parser._
@@ -78,8 +80,9 @@ class SchemeParserTest extends FunSuite {
     assert(parse(identifier, input = "a-valid-#scheme-var") == Right("a-valid-#scheme-var"))
     assert(parse(identifier, input = "a-valid,scheme-var") == Right("a-valid,scheme-var"))
     assert(parse(identifier, input = "12345.e") == Right("12345.e"))
-    assert(parse(identifier, input = "#a-valid-scheme-var!") == Left("identifiers may not start with '#', ',', or '\"' at line = 1, char = 21"))
-    assert(parse(identifier, input = ",a-valid-scheme-var!") == Left("identifiers may not start with '#', ',', or '\"' at line = 1, char = 21"))
+    assert(parse(identifier, input = "n") == Right("n"))
+    assert(parse(identifier, input = "#a-valid-scheme-var!") == Left("identifier: may not start with '#', ',', or '\"' at line = 1, char = 21"))
+    assert(parse(identifier, input = ",a-valid-scheme-var!") == Left("identifier: may not start with '#', ',', or '\"' at line = 1, char = 21"))
   }
 
   test("string") {
@@ -93,8 +96,8 @@ class SchemeParserTest extends FunSuite {
 
   test("numOrIdent") {
     assert(parse(numOrIdent, input = "12345e0") == Right(FloatToken(12345e0)))
-    assert(parse(numOrIdent, input = "12345.e") == Right(IdentifierToken("12345.e")))
-    assert(parse(numOrIdent, input = "12345e") == Right(IdentifierToken("12345e")))
+    assert(parse(numOrIdent, input = "12345.e") == Right(Identifier("12345.e")))
+    assert(parse(numOrIdent, input = "12345e") == Right(Identifier("12345e")))
     assert(parse(numOrIdent, input = "12345") == Right(IntegerToken(12345)))
   }
 
@@ -106,9 +109,105 @@ class SchemeParserTest extends FunSuite {
     assert(parseSome(token, input = "12345. rest") == Right(FloatToken(12345), " rest"))
     assert(parseSome(token, input = "12345.6789 rest") == Right(FloatToken(12345.6789), " rest"))
     assert(parseSome(token, input = "12345 rest") == Right(IntegerToken(12345), " rest"))
-    assert(parseSome(token, input = "first rest") == Right(IdentifierToken("first"), " rest"))
-    assert(parseSome(token, input = "123first rest") == Right(IdentifierToken("123first"), " rest"))
+    assert(parseSome(token, input = "first rest") == Right(Identifier("first"), " rest"))
+    assert(parseSome(token, input = "123first rest") == Right(Identifier("123first"), " rest"))
     assert(parseSome(token, input = "\"123\\tfirst\" rest") == Right(StringToken("123\tfirst"), " rest"))
-    assert(parseSome(token, input = "\"123\nfirst\" rest") == Left("stringLit: char: expected '\"' at line = 1, char = 5"))
+    assert(parseSome(token, input = "\"123\nfirst\" rest") == Left("token: stringLit: char: expected '\"' at line = 1, char = 5"))
+  }
+
+  test("quoted") {
+    assert(parse(quoted, input = "'(1 2 3 4)") == Right(Quoted(ListExp(Seq(1, 2, 3, 4).map(IntegerToken(_))))))
+    assert(parse(quoted, input = "'1") == Right(Quoted(IntegerToken(1))))
+    assert(parse(quoted, input = "'1.1e10") == Right(Quoted(FloatToken(1.1e10))))
+    assert(parse(quoted, input = "'#t") == Right(Quoted(BooleanToken(true))))
+    assert(parse(quoted, input = "'#\\c") == Right(Quoted(CharToken('c'))))
+    assert(parse(quoted, input = "'()") == Right(Quoted(ListExp(Seq()))))
+    assert(parse(quoted, input = "'im-a-symbol") == Right(Quoted(Symbol("im-a-symbol"))))
+    assert(parse(quoted, input = "'\"a quoted string\"") == Right(Quoted(StringToken("a quoted string"))))
+  }
+
+  test("expression") {
+    assert(parse(expression, input = "(abba baab abab baba)") == Right(ListExp(Seq(Identifier("abba"), Identifier("baab"), Identifier("abab"), Identifier("baba")))))
+    assert(parse(expression, input = "(abba baab\nabab baba)") == Right(ListExp(Seq(Identifier("abba"), Identifier("baab"), Identifier("abab"), Identifier("baba")))))
+    assert(parse(expression, input = "(abba (baab abab) baba)") == Right(ListExp(Seq(Identifier("abba"), ListExp(Seq(Identifier("baab"), Identifier("abab"))), Identifier("baba")))))
+    assert(parse(expression, input = "(abba (baab\nabab) baba)") == Right(ListExp(Seq(Identifier("abba"), ListExp(Seq(Identifier("baab"), Identifier("abab"))), Identifier("baba")))))
+    assert(parse(expression, input = "(abba (baab abab))") == Right(ListExp(Seq(Identifier("abba"), ListExp(Seq(Identifier("baab"), Identifier("abab")))))))
+    assert(parse(expression, input = "(abba\n(baab abab))") == Right(ListExp(Seq(Identifier("abba"), ListExp(Seq(Identifier("baab"), Identifier("abab")))))))
+    assert(parse(expression, input = "(abba (baab abab)\n)") == Right(ListExp(Seq(Identifier("abba"), ListExp(Seq(Identifier("baab"), Identifier("abab")))))))
+    assert(parse(expression, input = "(abba\n(baab abab)\n)") == Right(ListExp(Seq(Identifier("abba"), ListExp(Seq(Identifier("baab"), Identifier("abab")))))))
+    assert(parse(expression, input = "(map fact '(1 2 3 4 5))") == Right(ListExp(Seq(Identifier("map"), Identifier("fact"), Quoted(ListExp(Seq(IntegerToken(1), IntegerToken(2), IntegerToken(3), IntegerToken(4), IntegerToken(5))))))))
+  }
+
+  test("program") {
+    val exp = ListExp(Seq(Identifier("abba"), Identifier("baab"), Identifier("abab"), Identifier("baba")))
+    assert(parse(program, input = "(abba baab abab baba)\n\n(abba baab abab baba)") == Right(Program(Seq(exp, exp))))
+
+    val inputStream = getClass.getClassLoader.getResourceAsStream("fact.scm")
+    val input = Source.fromInputStream(inputStream).getLines().mkString("\n")
+    val ast = Program(
+      Seq(
+        ListExp(
+          Seq(
+            Identifier("define"),
+            ListExp(
+              Seq(
+                Identifier("fact"),
+                Identifier("n")
+              )
+            ),
+            ListExp(
+              Seq(
+                Identifier("if"),
+                ListExp(
+                  Seq(
+                    Identifier("<="),
+                    Identifier("n"),
+                    IntegerToken(0)
+                  )
+                ),
+                IntegerToken(1),
+                ListExp(
+                  Seq(
+                    Identifier("*"),
+                    Identifier("n"),
+                    ListExp(
+                      Seq(
+                        Identifier("fact"),
+                        ListExp(
+                          Seq(
+                            Identifier("-"),
+                            Identifier("n"),
+                            IntegerToken(1)
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        ),
+        ListExp(
+          Seq(
+            Identifier("map"),
+            Identifier("fact"),
+            Quoted(
+              ListExp(
+                Seq(
+                  IntegerToken(1),
+                  IntegerToken(2),
+                  IntegerToken(3),
+                  IntegerToken(4),
+                  IntegerToken(5),
+                  IntegerToken(6)
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+    assert(parse(program, input) == Right(ast))
   }
 }

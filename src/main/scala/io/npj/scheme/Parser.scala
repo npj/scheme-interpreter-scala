@@ -4,7 +4,7 @@ import io.npj.scheme.Parser.ParserStateM
 import io.npj.scheme.cat.trans.{EitherT, StateT}
 import io.npj.scheme.cat.{Alternative, Identity, Monoid}
 
-case class ParseState(charNum: Int, lineNum: Int, pos: Int, input: String)
+case class ParseState(charNum: Int, lineNum: Int, pos: Int, stack: Seq[String], input: String)
 case class Parser[A](private val parserState: ParserStateM[A])
 
 object ParseState {
@@ -12,7 +12,8 @@ object ParseState {
     charNum = 1,
     lineNum = 1,
     pos = 0,
-    input = input
+    input = input,
+    stack = Seq()
   )
 }
 
@@ -70,6 +71,15 @@ object Parser {
 
     def orElse[A](fa1: => Parser[A])(fa2: => Parser[A]): Parser[A] =
       Parser(fa1.parserState <|> fa2.parserState)
+  }
+
+  implicit def ParserMonoid[A: Monoid]: Monoid[Parser[A]] = new Monoid[Parser[A]] {
+    private val M = Monoid[A]
+
+    def empty: Parser[A] = ParserApplicative.pure(M.empty)
+
+    def append(a1: Parser[A])(a2: Parser[A]): Parser[A] =
+      a1.map(M.append) <*> a2
   }
 
   object syntax {
@@ -255,6 +265,14 @@ object Parser {
   def sepBy1[A, S](p: Parser[A])(s: Parser[S]): Parser[Seq[A]] =
     p.map(+:) <*> ((s *> sepBy1(p)(s)) <|> pure(Seq()))
 
+  // useful for [..], <...>, (...), etc...
+  def between[A](start: Char, end: Char, parser: Parser[A]): Parser[A] =
+    char(start) *> ignoreSpace(parser) <* char(end)
+
+  // ignore surrounding whitespace
+  def ignoreSpace[A](parser: Parser[A]): Parser[A] =
+    many(space) *> parser <* many(space)
+
   private def step(state: ParseState): ParseState = {
     val newPos = state.pos + 1
     if (state.input.charAt(state.pos) == '\n') {
@@ -262,14 +280,5 @@ object Parser {
     } else {
       state.copy(pos = newPos, charNum = state.charNum + 1)
     }
-  }
-
-  implicit def ParserMonoid[A: Monoid]: Monoid[Parser[A]] = new Monoid[Parser[A]] {
-    private val M = Monoid[A]
-
-    def empty: Parser[A] = ParserApplicative.pure(M.empty)
-
-    def append(a1: Parser[A])(a2: Parser[A]): Parser[A] =
-      a1.map(M.append) <*> a2
   }
 }
