@@ -142,7 +142,7 @@ class SchemeParserTest extends FunSuite {
     val exp = ListExp(Seq(Identifier("abba"), Identifier("baab"), Identifier("abab"), Identifier("baba")))
     assert(parse(program, input = "(abba baab abab baba)\n\n(abba baab abab baba)") == Right(Program(Seq(exp, exp))))
 
-    val inputStream = getClass.getClassLoader.getResourceAsStream("fact.scm")
+    val inputStream = getClass.getClassLoader.getResourceAsStream("test.scm")
     val input = Source.fromInputStream(inputStream).getLines().mkString("\n")
     val ast = Program(
       Seq(
@@ -184,6 +184,48 @@ class SchemeParserTest extends FunSuite {
                     )
                   )
                 )
+              )
+            )
+          )
+        ),
+        ListExp(
+          Seq(
+            Identifier("define"),
+            ListExp(
+              Seq(
+                Identifier("outer"),
+                Identifier("n")
+              )
+            ),
+            ListExp(
+              Seq(
+                Identifier("define"),
+                ListExp(
+                  Seq(
+                    Identifier("inner"),
+                    Identifier("x")
+                  )
+                ),
+                ListExp(
+                  Seq(
+                    Identifier("if"),
+                    ListExp(
+                      Seq(
+                        Identifier("="),
+                        Identifier("n"),
+                        Identifier("x")
+                      )
+                    ),
+                    Identifier("x"),
+                    IntegerToken(20)
+                  )
+                )
+              )
+            ),
+            ListExp(
+              Seq(
+                Identifier("inner"),
+                IntegerToken(5)
               )
             )
           )
